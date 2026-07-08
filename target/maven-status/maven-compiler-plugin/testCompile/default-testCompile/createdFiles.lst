@@ -1,0 +1,8 @@
+com\referral\outreach\controller\ResumeControllerIntegrationTest.class
+com\referral\outreach\controller\CampaignControllerIntegrationTest.class
+com\referral\outreach\util\TemplateParserTest.class
+com\referral\outreach\controller\EmailHistoryControllerIntegrationTest.class
+com\referral\outreach\controller\RecruiterControllerIntegrationTest.class
+com\referral\outreach\service\MailServiceTest.class
+com\referral\outreach\controller\TemplateControllerIntegrationTest.class
+com\referral\outreach\scheduler\WeeklyOutreachSchedulerTest.class

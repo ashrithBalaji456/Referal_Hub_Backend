@@ -1,0 +1,17 @@
+spring:
+  profiles:
+    active: dev
+  application:
+    name: referral-outreach-manager
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+
+app:
+  upload:
+    dir: ./uploads/resumes
+  scheduler:
+    cron: "0 0 9 * * MON" # Default: Every Monday at 9:00 AM
+    cooldown-days: 30 # Prevent duplicate outreach for 30 days
+  candidate-name: ${CANDIDATE_NAME:Gudla Ashrith Balaji}
