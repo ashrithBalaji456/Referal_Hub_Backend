@@ -1,36 +1,10 @@
-::: {align="center"}
 # 🚀 Referral Hub
 
 ### Automated Job Outreach & Referral Management Platform
 
-```{=html}
-<p>
-```
 A full-stack platform for managing professional contacts, creating
 reusable email templates, attaching resumes, and running controlled
 scheduled outreach campaigns.
-```{=html}
-</p>
-```
-```{=html}
-<p>
-```
-`<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&pause=1000&center=true&vCenter=true&width=700&lines=Java+%2B+Spring+Boot+%2B+React;Schedule.+Personalize.+Send.+Track.;Built+for+Responsible+Job+Outreach" alt="Typing SVG" />`{=html}
-```{=html}
-</p>
-```
-```{=html}
-<p>
-```
-`<img src="https://img.shields.io/badge/Java-17-orange?logo=openjdk" />`{=html}
-`<img src="https://img.shields.io/badge/Spring_Boot-3.3.1-6DB33F?logo=springboot&logoColor=white" />`{=html}
-`<img src="https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black" />`{=html}
-`<img src="https://img.shields.io/badge/PostgreSQL-Database-4169E1?logo=postgresql&logoColor=white" />`{=html}
-`<img src="https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite&logoColor=white" />`{=html}
-`<img src="https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss&logoColor=white" />`{=html}
-```{=html}
-</p>
-```
 **Built in July 2026**
 
 [Frontend
@@ -628,7 +602,6 @@ applications, database-backed systems, and backend automation.
 
 If you find this project useful, consider giving the repositories a ⭐.
 
-::: {align="center"}
 ### Built with ☕ Java, 🌱 Spring Boot, ⚛️ React and 🐘 PostgreSQL
 
 **Schedule responsibly. Personalize thoughtfully. Track clearly.**
