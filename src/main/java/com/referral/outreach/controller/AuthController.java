@@ -241,9 +241,9 @@ public class AuthController {
             mailService.sendPasswordResetEmail(user.getEmail(), token);
         } catch (Exception e) {
             log.error("Failed to dispatch password reset email for user {}: {}", email, e.getMessage());
-            log.warn("[DEV MODE] Reset link for {}: http://localhost:5173/reset-password?token={}", email, token);
+            log.warn("[DEV MODE] Reset link for {}: reset-password?token={}", email, token);
             return ResponseEntity.ok(Map.of(
-                "message", "Password reset link generated! Check server logs or configure a valid Gmail App Password in application-dev.yml."
+                "message", "Password reset link generated! To receive emails in production, ensure SMTP_HOST, SMTP_USERNAME, and SMTP_PASSWORD environment variables are set in your Render dashboard."
             ));
         }
 
