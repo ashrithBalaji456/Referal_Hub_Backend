@@ -27,6 +27,13 @@ public class ResumeController {
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
+    @GetMapping("/active")
+    public ResponseEntity<ResumeResponse> getActiveResume() {
+        log.info("REST request to get active resume");
+        ResumeResponse response = resumeService.getActiveResume();
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ResumeResponse> getResumeById(@PathVariable Long id) {
         log.info("REST request to get resume metadata ID: {}", id);
@@ -52,13 +59,6 @@ public class ResumeController {
     public ResponseEntity<ResumeResponse> markAsActive(@PathVariable Long id) {
         log.info("REST request to mark resume ID: {} as active", id);
         ResumeResponse response = resumeService.markAsActive(id);
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/active")
-    public ResponseEntity<ResumeResponse> getActiveResume() {
-        log.info("REST request to get active resume");
-        ResumeResponse response = resumeService.getActiveResume();
         return ResponseEntity.ok(response);
     }
 }
