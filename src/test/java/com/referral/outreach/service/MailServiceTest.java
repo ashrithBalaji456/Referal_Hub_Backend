@@ -67,8 +67,8 @@ public class MailServiceTest {
         recruiter = recruiterRepository.save(Recruiter.builder()
                 .name("Alice Recruiter")
                 .email("alice@company.com")
+                .title("HR Head")
                 .company("Amazon")
-                .roleCategory(RoleCategory.JAVA_BACKEND_DEVELOPER)
                 .status(RecruiterStatus.ACTIVE)
                 .build());
 
@@ -118,9 +118,8 @@ public class MailServiceTest {
         // Force mailSender to throw exception
         doThrow(new RuntimeException("SMTP Server offline")).when(mailSender).send(any(MimeMessage.class));
 
-        assertThrows(MailSendingException.class, () -> {
-            mailService.sendOutreachEmail(recruiter.getId(), template.getId(), resume.getId(), null);
-        });
+        boolean success = mailService.sendOutreachEmail(recruiter.getId(), template.getId(), resume.getId(), null);
+        assertFalse(success);
 
         // Verify history was saved with FAILED
         List<EmailHistory> historyList = emailHistoryRepository.findAll();

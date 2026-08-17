@@ -42,6 +42,10 @@ public class EmailHistory {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
+
     @PrePersist
     protected void onCreate() {
         if (this.sentTimestamp == null) {

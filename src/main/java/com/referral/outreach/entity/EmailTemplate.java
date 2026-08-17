@@ -7,7 +7,10 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "email_template")
+@Table(
+    name = "email_template",
+    uniqueConstraints = {@UniqueConstraint(columnNames = {"template_name", "user_id"})}
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -19,7 +22,7 @@ public class EmailTemplate {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "template_name", nullable = false, unique = true)
+    @Column(name = "template_name", nullable = false)
     private String templateName;
 
     @Column(nullable = false)
@@ -35,4 +38,8 @@ public class EmailTemplate {
     @UpdateTimestamp
     @Column(name = "updated_timestamp", nullable = false)
     private LocalDateTime updatedTimestamp;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 }

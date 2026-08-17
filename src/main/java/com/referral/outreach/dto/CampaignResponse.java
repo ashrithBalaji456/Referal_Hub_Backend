@@ -18,5 +18,7 @@ public class CampaignResponse {
     private Long resumeId;
     private String resumeFilename;
     private boolean isEnabled;
+    private Integer targetSet;
+    private String targetTitleGroup;
     private LocalDateTime createdTimestamp;
 }

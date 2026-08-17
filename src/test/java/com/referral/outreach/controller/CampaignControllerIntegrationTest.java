@@ -55,6 +55,9 @@ public class CampaignControllerIntegrationTest {
     private RecruiterRepository recruiterRepository;
 
     @Autowired
+    private com.referral.outreach.repository.UserRepository userRepository;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
     @MockBean
@@ -64,6 +67,7 @@ public class CampaignControllerIntegrationTest {
     private Resume savedResume;
     private Recruiter savedRecruiter;
     private File tempResumeFile;
+    private User testUser;
 
     @BeforeEach
     public void setup() throws IOException {
@@ -71,6 +75,20 @@ public class CampaignControllerIntegrationTest {
         templateRepository.deleteAll();
         resumeRepository.deleteAll();
         recruiterRepository.deleteAll();
+        userRepository.deleteAll();
+
+        // Seed and authenticate test user
+        testUser = userRepository.save(User.builder()
+                .username("testuser")
+                .email("testuser@gmail.com")
+                .password("password")
+                .build());
+
+        com.referral.outreach.security.UserPrincipal principal = com.referral.outreach.security.UserPrincipal.create(testUser);
+        org.springframework.security.authentication.UsernamePasswordAuthenticationToken auth = 
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        principal, null, java.util.Collections.emptyList());
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
 
         // Create temporary PDF file to simulate resume
         tempResumeFile = File.createTempFile("test_resume", ".pdf");
@@ -82,6 +100,7 @@ public class CampaignControllerIntegrationTest {
                 .templateName("My Template")
                 .subject("Referral for {{roleName}}")
                 .body("Hi {{recruiterName}}, I want to apply for a role at {{companyName}}.")
+                .user(testUser)
                 .build());
 
         savedResume = resumeRepository.save(Resume.builder()
@@ -91,13 +110,14 @@ public class CampaignControllerIntegrationTest {
                 .fileSize(100L)
                 .contentType("application/pdf")
                 .isActive(true)
+                .user(testUser)
                 .build());
 
         savedRecruiter = recruiterRepository.save(Recruiter.builder()
                 .name("Bob Smith")
                 .email("bob@company.com")
+                .title("HR Manager")
                 .company("Microsoft")
-                .roleCategory(RoleCategory.SPRING_BOOT_DEVELOPER)
                 .status(RecruiterStatus.ACTIVE)
                 .build());
 
@@ -130,6 +150,7 @@ public class CampaignControllerIntegrationTest {
                 .emailTemplate(savedTemplate)
                 .resume(savedResume)
                 .isEnabled(true)
+                .user(testUser)
                 .build());
 
         Campaign camp2 = campaignRepository.save(Campaign.builder()
@@ -137,6 +158,7 @@ public class CampaignControllerIntegrationTest {
                 .emailTemplate(savedTemplate)
                 .resume(savedResume)
                 .isEnabled(false)
+                .user(testUser)
                 .build());
 
         mockMvc.perform(patch("/api/campaigns/" + camp2.getId() + "/enable"))
@@ -158,13 +180,14 @@ public class CampaignControllerIntegrationTest {
                 .emailTemplate(savedTemplate)
                 .resume(savedResume)
                 .isEnabled(true)
+                .user(testUser)
                 .build());
 
         mockMvc.perform(get("/api/campaigns/" + campaign.getId() + "/preview")
                         .param("recruiterId", savedRecruiter.getId().toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.recipientEmail", is("bob@company.com")))
-                .andExpect(jsonPath("$.subject", is("Referral for Spring Boot Developer")))
+                .andExpect(jsonPath("$.subject", is("Referral for Java Backend Developer")))
                 .andExpect(jsonPath("$.body", is("Hi Bob Smith, I want to apply for a role at Microsoft.")));
     }
 
@@ -175,6 +198,7 @@ public class CampaignControllerIntegrationTest {
                 .emailTemplate(savedTemplate)
                 .resume(savedResume)
                 .isEnabled(true)
+                .user(testUser)
                 .build());
 
         mockMvc.perform(post("/api/campaigns/" + campaign.getId() + "/trigger")

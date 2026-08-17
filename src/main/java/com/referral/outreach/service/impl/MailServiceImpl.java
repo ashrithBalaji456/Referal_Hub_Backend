@@ -5,6 +5,9 @@ import com.referral.outreach.exception.MailSendingException;
 import com.referral.outreach.exception.ResourceNotFoundException;
 import com.referral.outreach.repository.*;
 import com.referral.outreach.service.MailService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.referral.outreach.service.CandidateProfileService;
 import com.referral.outreach.util.TemplateParser;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
@@ -30,13 +33,67 @@ public class MailServiceImpl implements MailService {
     private final ResumeRepository resumeRepository;
     private final CampaignRepository campaignRepository;
     private final EmailHistoryRepository emailHistoryRepository;
+    private final CandidateProfileRepository candidateProfileRepository;
+    private final UserRepository userRepository;
+    private final ObjectMapper objectMapper;
 
     @Value("${app.candidate-name:Gudla Ashrith Balaji}")
     private String candidateName;
 
+    @Value("${app.target-role:Java Backend Developer}")
+    private String targetRole;
+
+    private java.util.Map<String, String> getCandidateVariables(User user) {
+        java.util.Map<String, String> vars = new java.util.HashMap<>();
+        
+        CandidateProfile profile = null;
+        if (user != null) {
+            profile = candidateProfileRepository.findByUser(user).orElse(null);
+        }
+        
+        String nameVal = profile != null ? profile.getFullName() : null;
+        if (nameVal == null || nameVal.trim().isEmpty()) {
+            nameVal = candidateName;
+        }
+        String roleVal = profile != null ? profile.getRoleName() : null;
+        if (roleVal == null || roleVal.trim().isEmpty()) {
+            roleVal = targetRole;
+        }
+        
+        vars.put("candidateName", nameVal);
+        vars.put("roleName", roleVal);
+        vars.put("email", (profile != null && profile.getEmail() != null) ? profile.getEmail() : "ashrithbalajigudla@gmail.com");
+        vars.put("linkedin", (profile != null && profile.getLinkedinUrl() != null) ? profile.getLinkedinUrl() : "");
+        vars.put("github", (profile != null && profile.getGithubUrl() != null) ? profile.getGithubUrl() : "");
+        vars.put("phoneNumber", (profile != null && profile.getPhoneNumber() != null) ? profile.getPhoneNumber() : "");
+        vars.put("location", (profile != null && profile.getLocation() != null) ? profile.getLocation() : "");
+        
+        vars.put("candidate_name", nameVal);
+        vars.put("role_name", roleVal);
+        vars.put("linkedinUrl", (profile != null && profile.getLinkedinUrl() != null) ? profile.getLinkedinUrl() : "");
+        vars.put("githubUrl", (profile != null && profile.getGithubUrl() != null) ? profile.getGithubUrl() : "");
+        vars.put("phone", (profile != null && profile.getPhoneNumber() != null) ? profile.getPhoneNumber() : "");
+        
+        if (profile != null && profile.getCustomFieldsJson() != null && !profile.getCustomFieldsJson().isEmpty()) {
+            try {
+                java.util.Map<String, String> customMap = objectMapper.readValue(
+                        profile.getCustomFieldsJson(),
+                        new TypeReference<java.util.Map<String, String>>() {}
+                );
+                if (customMap != null) {
+                    vars.putAll(customMap);
+                }
+            } catch (Exception e) {
+                log.error("Failed to parse custom fields JSON", e);
+            }
+        }
+        
+        return vars;
+    }
+
     @Override
     @Transactional
-    public void sendOutreachEmail(Long recruiterId, Long templateId, Long resumeId, Long campaignId) {
+    public boolean sendOutreachEmail(Long recruiterId, Long templateId, Long resumeId, Long campaignId) {
         Recruiter recruiter = recruiterRepository.findById(recruiterId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recruiter not found with ID: " + recruiterId));
 
@@ -48,28 +105,40 @@ public class MailServiceImpl implements MailService {
 
         Campaign campaign = null;
         if (campaignId != null) {
-            campaign = campaignRepository.findById(campaignId)
-                    .orElse(null);
+            campaign = campaignRepository.findById(campaignId).orElse(null);
         }
 
-        String roleName = recruiter.getRoleCategory() == RoleCategory.JAVA_BACKEND_DEVELOPER 
-                ? "Java Backend Developer" 
-                : "Spring Boot Developer";
+        // Determine user context safely (campaign owner or authenticated context)
+        User user = null;
+        if (campaign != null) {
+            user = campaign.getUser();
+        }
+        if (user == null) {
+            org.springframework.security.core.Authentication auth = 
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof com.referral.outreach.security.UserPrincipal) {
+                com.referral.outreach.security.UserPrincipal principal = (com.referral.outreach.security.UserPrincipal) auth.getPrincipal();
+                user = userRepository.findById(principal.getId()).orElse(null);
+            }
+        }
+        if (user == null && template.getUser() != null) {
+            user = template.getUser();
+        }
+
+        java.util.Map<String, String> vars = getCandidateVariables(user);
 
         String compiledSubject = TemplateParser.compile(
                 template.getSubject(),
                 recruiter.getName(),
                 recruiter.getCompany(),
-                candidateName,
-                roleName
+                vars
         );
 
         String compiledBody = TemplateParser.compile(
                 template.getBody(),
                 recruiter.getName(),
                 recruiter.getCompany(),
-                candidateName,
-                roleName
+                vars
         );
 
         log.info("Attempting to send email to recruiter: {} ({}) for company: {}", 
@@ -102,15 +171,16 @@ public class MailServiceImpl implements MailService {
                     .recipientEmail(recruiter.getEmail())
                     .subjectUsed(compiledSubject)
                     .status(EmailHistoryStatus.SUCCESS)
+                    .user(user)
                     .build();
             emailHistoryRepository.save(history);
 
             log.info("Email sent successfully to: {}", recruiter.getEmail());
+            return true;
 
         } catch (Exception ex) {
             log.error("Failed to send email to: {}", recruiter.getEmail(), ex);
 
-            // Log Failure
             EmailHistory history = EmailHistory.builder()
                     .recruiter(recruiter)
                     .campaign(campaign)
@@ -118,10 +188,11 @@ public class MailServiceImpl implements MailService {
                     .subjectUsed(compiledSubject)
                     .status(EmailHistoryStatus.FAILED)
                     .errorMessage(ex.getMessage())
+                    .user(user)
                     .build();
             emailHistoryRepository.save(history);
 
-            throw new MailSendingException("Failed to send email to: " + recruiter.getEmail(), ex);
+            return false;
         }
     }
 
@@ -134,16 +205,24 @@ public class MailServiceImpl implements MailService {
         EmailTemplate template = templateRepository.findById(templateId)
                 .orElseThrow(() -> new ResourceNotFoundException("Template not found with ID: " + templateId));
 
-        String roleName = recruiter.getRoleCategory() == RoleCategory.JAVA_BACKEND_DEVELOPER 
-                ? "Java Backend Developer" 
-                : "Spring Boot Developer";
+        User user = null;
+        org.springframework.security.core.Authentication auth = 
+            org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof com.referral.outreach.security.UserPrincipal) {
+            com.referral.outreach.security.UserPrincipal principal = (com.referral.outreach.security.UserPrincipal) auth.getPrincipal();
+            user = userRepository.findById(principal.getId()).orElse(null);
+        }
+        if (user == null && template.getUser() != null) {
+            user = template.getUser();
+        }
+
+        java.util.Map<String, String> vars = getCandidateVariables(user);
 
         return TemplateParser.compile(
                 template.getBody(),
                 recruiter.getName(),
                 recruiter.getCompany(),
-                candidateName,
-                roleName
+                vars
         );
     }
 
@@ -156,16 +235,62 @@ public class MailServiceImpl implements MailService {
         EmailTemplate template = templateRepository.findById(templateId)
                 .orElseThrow(() -> new ResourceNotFoundException("Template not found with ID: " + templateId));
 
-        String roleName = recruiter.getRoleCategory() == RoleCategory.JAVA_BACKEND_DEVELOPER 
-                ? "Java Backend Developer" 
-                : "Spring Boot Developer";
+        User user = null;
+        org.springframework.security.core.Authentication auth = 
+            org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof com.referral.outreach.security.UserPrincipal) {
+            com.referral.outreach.security.UserPrincipal principal = (com.referral.outreach.security.UserPrincipal) auth.getPrincipal();
+            user = userRepository.findById(principal.getId()).orElse(null);
+        }
+        if (user == null && template.getUser() != null) {
+            user = template.getUser();
+        }
+
+        java.util.Map<String, String> vars = getCandidateVariables(user);
 
         return TemplateParser.compile(
                 template.getSubject(),
                 recruiter.getName(),
                 recruiter.getCompany(),
-                candidateName,
-                roleName
+                vars
         );
+    }
+
+    @Override
+    public void sendPasswordResetEmail(String recipientEmail, String token) {
+        log.info("Sending password reset email to: {}", recipientEmail);
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+            
+            helper.setTo(recipientEmail);
+            helper.setSubject("Outreach Portal - Password Reset Request");
+            
+            String resetLink = "http://localhost:5173/reset-password?token=" + token;
+            log.info("==================================================================");
+            log.info("PASSWORD RESET LINK GENERATED FOR [{}]:", recipientEmail);
+            log.info("--> {}", resetLink);
+            log.info("==================================================================");
+            
+            String htmlContent = "<div style='font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;'>" +
+                    "<h2 style='color: #4f46e5; margin-bottom: 20px;'>Password Reset Request</h2>" +
+                    "<p>Hello,</p>" +
+                    "<p>We received a request to reset your password for your Outreach Portal account. Click the button below to set a new password:</p>" +
+                    "<div style='text-align: center; margin: 30px 0;'>" +
+                    "<a href='" + resetLink + "' style='background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;'>Reset Password</a>" +
+                    "</div>" +
+                    "<p>If you did not request this, you can safely ignore this email.</p>" +
+                    "<hr style='border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;' />" +
+                    "<p style='font-size: 12px; color: #64748b;'>If the button above does not work, copy and paste this URL into your browser:</p>" +
+                    "<p style='font-size: 12px; color: #64748b; word-break: break-all;'>" + resetLink + "</p>" +
+                    "</div>";
+            
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+            log.info("Password reset email sent successfully to: {}", recipientEmail);
+        } catch (Exception e) {
+            log.error("Failed to send password reset email to: {}. Error: {}", recipientEmail, e.getMessage());
+            throw new MailSendingException("Failed to send password reset email: " + e.getMessage(), e);
+        }
     }
 }

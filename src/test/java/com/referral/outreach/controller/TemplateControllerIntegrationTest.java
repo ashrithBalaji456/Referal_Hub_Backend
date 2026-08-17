@@ -3,6 +3,7 @@ package com.referral.outreach.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.referral.outreach.dto.TemplateRequest;
 import com.referral.outreach.entity.EmailTemplate;
+import com.referral.outreach.entity.User;
 import com.referral.outreach.repository.TemplateRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,11 +35,30 @@ public class TemplateControllerIntegrationTest {
     private TemplateRepository templateRepository;
 
     @Autowired
+    private com.referral.outreach.repository.UserRepository userRepository;
+
+    @Autowired
     private ObjectMapper objectMapper;
+
+    private User testUser;
 
     @BeforeEach
     public void setup() {
         templateRepository.deleteAll();
+        userRepository.deleteAll();
+
+        // Seed and authenticate test user
+        testUser = userRepository.save(User.builder()
+                .username("testuser")
+                .email("testuser@gmail.com")
+                .password("password")
+                .build());
+
+        com.referral.outreach.security.UserPrincipal principal = com.referral.outreach.security.UserPrincipal.create(testUser);
+        org.springframework.security.authentication.UsernamePasswordAuthenticationToken auth = 
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        principal, null, java.util.Collections.emptyList());
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
     }
 
     @Test
@@ -65,6 +85,7 @@ public class TemplateControllerIntegrationTest {
                 .templateName("Standard Referral")
                 .subject("Referral request")
                 .body("Body")
+                .user(testUser)
                 .build());
 
         TemplateRequest request = TemplateRequest.builder()
@@ -93,6 +114,7 @@ public class TemplateControllerIntegrationTest {
                 .templateName("Old Template")
                 .subject("Old Subject")
                 .body("Old Body")
+                .user(testUser)
                 .build());
 
         TemplateRequest request = TemplateRequest.builder()
@@ -115,6 +137,7 @@ public class TemplateControllerIntegrationTest {
                 .templateName("Standard Referral")
                 .subject("Referral request")
                 .body("Body")
+                .user(testUser)
                 .build());
 
         mockMvc.perform(delete("/api/templates/" + saved.getId()))

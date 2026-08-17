@@ -3,7 +3,9 @@ package com.referral.outreach.service.impl;
 import com.referral.outreach.dto.EmailHistoryResponse;
 import com.referral.outreach.entity.EmailHistory;
 import com.referral.outreach.entity.EmailHistoryStatus;
+import com.referral.outreach.entity.User;
 import com.referral.outreach.repository.EmailHistoryRepository;
+import com.referral.outreach.security.SecurityUtils;
 import com.referral.outreach.service.EmailHistoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +25,7 @@ import java.util.stream.Collectors;
 public class EmailHistoryServiceImpl implements EmailHistoryService {
 
     private final EmailHistoryRepository emailHistoryRepository;
+    private final SecurityUtils securityUtils;
 
     @Override
     @Transactional(readOnly = true)
@@ -33,11 +36,15 @@ public class EmailHistoryServiceImpl implements EmailHistoryService {
             LocalDateTime startDate,
             LocalDateTime endDate) {
 
-        log.info("Fetching filtered email history: recruiterId={}, company={}, status={}, startDate={}, endDate={}",
-                recruiterId, company, status, startDate, endDate);
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Fetching filtered email history: recruiterId={}, company={}, status={}, startDate={}, endDate={} for user: {}",
+                recruiterId, company, status, startDate, endDate, user.getUsername());
 
         Specification<EmailHistory> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
+
+            // Enforce user ownership isolation
+            predicates.add(cb.equal(root.get("user").get("id"), user.getId()));
 
             if (recruiterId != null) {
                 predicates.add(cb.equal(root.get("recruiter").get("id"), recruiterId));
@@ -58,7 +65,7 @@ public class EmailHistoryServiceImpl implements EmailHistoryService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        return emailHistoryRepository.findAll(spec).stream()
+        return emailHistoryRepository.findAll(spec, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "sentTimestamp")).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }

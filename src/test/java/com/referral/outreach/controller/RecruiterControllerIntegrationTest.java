@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.referral.outreach.dto.RecruiterRequest;
 import com.referral.outreach.entity.Recruiter;
 import com.referral.outreach.entity.RecruiterStatus;
-import com.referral.outreach.entity.RoleCategory;
+import com.referral.outreach.entity.User;
 import com.referral.outreach.repository.RecruiterRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,11 +37,28 @@ public class RecruiterControllerIntegrationTest {
     private RecruiterRepository recruiterRepository;
 
     @Autowired
+    private com.referral.outreach.repository.UserRepository userRepository;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
     @BeforeEach
     public void setup() {
         recruiterRepository.deleteAll();
+        userRepository.deleteAll();
+
+        // Seed and authenticate test user
+        User testUser = userRepository.save(User.builder()
+                .username("testuser")
+                .email("testuser@gmail.com")
+                .password("password")
+                .build());
+
+        com.referral.outreach.security.UserPrincipal principal = com.referral.outreach.security.UserPrincipal.create(testUser);
+        org.springframework.security.authentication.UsernamePasswordAuthenticationToken auth = 
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        principal, null, java.util.Collections.emptyList());
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
     }
 
     @Test
@@ -49,8 +66,8 @@ public class RecruiterControllerIntegrationTest {
         RecruiterRequest request = RecruiterRequest.builder()
                 .name("Jane Doe")
                 .email("jane.doe@example.com")
+                .title("HR Manager")
                 .company("Google")
-                .roleCategory(RoleCategory.JAVA_BACKEND_DEVELOPER)
                 .status(RecruiterStatus.ACTIVE)
                 .build();
 
@@ -60,8 +77,8 @@ public class RecruiterControllerIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name", is("Jane Doe")))
                 .andExpect(jsonPath("$.email", is("jane.doe@example.com")))
+                .andExpect(jsonPath("$.title", is("HR Manager")))
                 .andExpect(jsonPath("$.company", is("Google")))
-                .andExpect(jsonPath("$.roleCategory", is("JAVA_BACKEND_DEVELOPER")))
                 .andExpect(jsonPath("$.status", is("ACTIVE")));
 
         assertTrue(recruiterRepository.existsByEmail("jane.doe@example.com"));
@@ -72,8 +89,8 @@ public class RecruiterControllerIntegrationTest {
         Recruiter existing = Recruiter.builder()
                 .name("Jane Doe")
                 .email("jane.doe@example.com")
+                .title("HR Manager")
                 .company("Google")
-                .roleCategory(RoleCategory.JAVA_BACKEND_DEVELOPER)
                 .status(RecruiterStatus.ACTIVE)
                 .build();
         recruiterRepository.save(existing);
@@ -82,7 +99,7 @@ public class RecruiterControllerIntegrationTest {
                 .name("Jane Smith")
                 .email("jane.doe@example.com") // duplicate
                 .company("Meta")
-                .roleCategory(RoleCategory.SPRING_BOOT_DEVELOPER)
+                .title("HR Manager")
                 .status(RecruiterStatus.ACTIVE)
                 .build();
 
@@ -100,7 +117,7 @@ public class RecruiterControllerIntegrationTest {
                 .name("Jane Doe")
                 .email("not-an-email")
                 .company("Google")
-                .roleCategory(RoleCategory.JAVA_BACKEND_DEVELOPER)
+                .title("HR Manager")
                 .status(RecruiterStatus.ACTIVE)
                 .build();
 
@@ -124,16 +141,16 @@ public class RecruiterControllerIntegrationTest {
         Recruiter saved = recruiterRepository.save(Recruiter.builder()
                 .name("Jane Doe")
                 .email("jane.doe@example.com")
+                .title("HR Specialist")
                 .company("Google")
-                .roleCategory(RoleCategory.JAVA_BACKEND_DEVELOPER)
                 .status(RecruiterStatus.ACTIVE)
                 .build());
 
         RecruiterRequest request = RecruiterRequest.builder()
                 .name("Jane Doe Updated")
                 .email("jane.doe@example.com")
+                .title("HR Specialist")
                 .company("Alphabet")
-                .roleCategory(RoleCategory.SPRING_BOOT_DEVELOPER)
                 .status(RecruiterStatus.INACTIVE)
                 .build();
 
@@ -151,8 +168,8 @@ public class RecruiterControllerIntegrationTest {
         Recruiter saved = recruiterRepository.save(Recruiter.builder()
                 .name("Jane Doe")
                 .email("jane.doe@example.com")
+                .title("HR Coordinator")
                 .company("Google")
-                .roleCategory(RoleCategory.JAVA_BACKEND_DEVELOPER)
                 .status(RecruiterStatus.ACTIVE)
                 .build());
 
@@ -167,8 +184,8 @@ public class RecruiterControllerIntegrationTest {
         Recruiter saved = recruiterRepository.save(Recruiter.builder()
                 .name("Jane Doe")
                 .email("jane.doe@example.com")
+                .title("HR Coordinator")
                 .company("Google")
-                .roleCategory(RoleCategory.JAVA_BACKEND_DEVELOPER)
                 .status(RecruiterStatus.ACTIVE)
                 .build());
 

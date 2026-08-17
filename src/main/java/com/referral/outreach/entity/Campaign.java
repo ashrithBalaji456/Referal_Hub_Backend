@@ -32,7 +32,18 @@ public class Campaign {
     @Column(name = "is_enabled", nullable = false)
     private boolean isEnabled;
 
+    @Column(name = "target_set")
+    private Integer targetSet;
+
+    @Column(name = "target_title_group")
+    @Builder.Default
+    private String targetTitleGroup = "ALL";
+
     @CreationTimestamp
     @Column(name = "created_timestamp", nullable = false, updatable = false)
     private LocalDateTime createdTimestamp;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 }

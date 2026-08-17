@@ -60,8 +60,8 @@ public class WeeklyOutreachSchedulerTest {
         eligible1 = recruiterRepository.save(Recruiter.builder()
                 .name("Eligible 1")
                 .email("eligible1@test.com")
+                .title("HR Manager")
                 .company("Comp A")
-                .roleCategory(RoleCategory.JAVA_BACKEND_DEVELOPER)
                 .status(RecruiterStatus.ACTIVE)
                 .build());
 
@@ -69,8 +69,8 @@ public class WeeklyOutreachSchedulerTest {
         cooldownRecruiter = recruiterRepository.save(Recruiter.builder()
                 .name("Cooldown")
                 .email("cooldown@test.com")
+                .title("Recruitment Specialist")
                 .company("Comp B")
-                .roleCategory(RoleCategory.SPRING_BOOT_DEVELOPER)
                 .status(RecruiterStatus.ACTIVE)
                 .lastContactedDate(LocalDateTime.now().minusDays(10))
                 .build());
@@ -79,8 +79,8 @@ public class WeeklyOutreachSchedulerTest {
         eligible2 = recruiterRepository.save(Recruiter.builder()
                 .name("Eligible 2")
                 .email("eligible2@test.com")
+                .title("Director HR")
                 .company("Comp C")
-                .roleCategory(RoleCategory.JAVA_BACKEND_DEVELOPER)
                 .status(RecruiterStatus.ACTIVE)
                 .lastContactedDate(LocalDateTime.now().minusDays(40))
                 .build());
@@ -89,8 +89,8 @@ public class WeeklyOutreachSchedulerTest {
         inactiveRecruiter = recruiterRepository.save(Recruiter.builder()
                 .name("Inactive")
                 .email("inactive@test.com")
+                .title("HR Head")
                 .company("Comp D")
-                .roleCategory(RoleCategory.SPRING_BOOT_DEVELOPER)
                 .status(RecruiterStatus.INACTIVE)
                 .build());
 
@@ -119,14 +119,12 @@ public class WeeklyOutreachSchedulerTest {
 
     @Test
     public void testExecuteWeeklyOutreach_FiltersRecruitersAndContinuesOnFailure() {
-        // Mock sendOutreachEmail to throw for eligible1 and succeed for eligible2
-        doThrow(new RuntimeException("Mail server error"))
-                .when(mailService)
-                .sendOutreachEmail(eq(eligible1.getId()), anyLong(), anyLong(), eq(activeCampaign.getId()));
+        // Mock sendOutreachEmail to return false for eligible1 and true for eligible2
+        when(mailService.sendOutreachEmail(eq(eligible1.getId()), anyLong(), anyLong(), eq(activeCampaign.getId())))
+                .thenReturn(false);
 
-        doNothing()
-                .when(mailService)
-                .sendOutreachEmail(eq(eligible2.getId()), anyLong(), anyLong(), eq(activeCampaign.getId()));
+        when(mailService.sendOutreachEmail(eq(eligible2.getId()), anyLong(), anyLong(), eq(activeCampaign.getId())))
+                .thenReturn(true);
 
         // Run Scheduler
         scheduler.executeWeeklyOutreach();

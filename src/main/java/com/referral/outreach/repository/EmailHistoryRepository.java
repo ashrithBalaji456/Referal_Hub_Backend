@@ -8,4 +8,5 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface EmailHistoryRepository extends JpaRepository<EmailHistory, Long>, JpaSpecificationExecutor<EmailHistory> {
     void deleteByCampaignId(Long campaignId);
+    void deleteByCampaignIdAndUserId(Long campaignId, Long userId);
 }

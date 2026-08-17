@@ -111,4 +111,24 @@ public class CampaignController {
                 "count", triggeredCount
         ));
     }
+
+    @PostMapping("/{id}/trigger-multiple")
+    public ResponseEntity<Void> triggerCampaignMultiple(
+            @PathVariable Long id,
+            @RequestBody java.util.List<Long> recruiterIds) {
+        log.info("REST request to trigger campaign: {} for multiple recruiters: {}", id, recruiterIds);
+        
+        // Execute outreach asynchronously in a background thread to prevent HTTP request timeout
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            for (Long rId : recruiterIds) {
+                try {
+                    campaignService.triggerCampaignManually(id, rId);
+                } catch (Exception ex) {
+                    log.error("Failed to manually trigger campaign ID: {} for recruiter ID: {}. Error: {}", id, rId, ex.getMessage());
+                }
+            }
+        });
+        
+        return ResponseEntity.ok().build();
+    }
 }

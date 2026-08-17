@@ -23,16 +23,19 @@ public class Recruiter {
     @Column(nullable = false, unique = true)
     private String email;
 
+    @Column(name = "title")
+    private String title;
+
     @Column(nullable = false)
     private String company;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "role_category", nullable = false)
-    private RoleCategory roleCategory;
-
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private RecruiterStatus status;
+
+    @Column(name = "contact_set")
+    @Builder.Default
+    private Integer contactSet = 1;
 
     @Column(name = "last_contacted_date")
     private LocalDateTime lastContactedDate;

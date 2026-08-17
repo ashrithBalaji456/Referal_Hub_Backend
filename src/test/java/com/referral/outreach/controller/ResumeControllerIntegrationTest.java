@@ -1,6 +1,7 @@
 package com.referral.outreach.controller;
 
 import com.referral.outreach.entity.Resume;
+import com.referral.outreach.entity.User;
 import com.referral.outreach.repository.ResumeRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,9 +37,28 @@ public class ResumeControllerIntegrationTest {
     @Autowired
     private ResumeRepository resumeRepository;
 
+    @Autowired
+    private com.referral.outreach.repository.UserRepository userRepository;
+
+    private User testUser;
+
     @BeforeEach
     public void setup() {
         resumeRepository.deleteAll();
+        userRepository.deleteAll();
+
+        // Seed and authenticate test user
+        testUser = userRepository.save(User.builder()
+                .username("testuser")
+                .email("testuser@gmail.com")
+                .password("password")
+                .build());
+
+        com.referral.outreach.security.UserPrincipal principal = com.referral.outreach.security.UserPrincipal.create(testUser);
+        org.springframework.security.authentication.UsernamePasswordAuthenticationToken auth = 
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        principal, null, java.util.Collections.emptyList());
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
     }
 
     @Test
@@ -104,6 +124,7 @@ public class ResumeControllerIntegrationTest {
                 .fileSize(100L)
                 .contentType("application/pdf")
                 .isActive(true)
+                .user(testUser)
                 .build());
 
         Resume resume2 = resumeRepository.save(Resume.builder()
@@ -113,6 +134,7 @@ public class ResumeControllerIntegrationTest {
                 .fileSize(200L)
                 .contentType("application/pdf")
                 .isActive(false)
+                .user(testUser)
                 .build());
 
         mockMvc.perform(patch("/api/resumes/" + resume2.getId() + "/active"))
@@ -143,6 +165,7 @@ public class ResumeControllerIntegrationTest {
                 .fileSize(100L)
                 .contentType("application/pdf")
                 .isActive(true)
+                .user(testUser)
                 .build());
 
         mockMvc.perform(get("/api/resumes/active"))

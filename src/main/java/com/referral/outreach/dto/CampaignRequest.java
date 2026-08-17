@@ -23,4 +23,7 @@ public class CampaignRequest {
     private Long resumeId;
 
     private boolean isEnabled;
+
+    private Integer targetSet;
+    private String targetTitleGroup;
 }

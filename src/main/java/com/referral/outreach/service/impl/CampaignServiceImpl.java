@@ -7,7 +7,9 @@ import com.referral.outreach.entity.Campaign;
 import com.referral.outreach.entity.EmailTemplate;
 import com.referral.outreach.entity.Recruiter;
 import com.referral.outreach.entity.Resume;
+import com.referral.outreach.entity.User;
 import com.referral.outreach.exception.ResourceNotFoundException;
+import com.referral.outreach.exception.MailSendingException;
 import com.referral.outreach.repository.CampaignRepository;
 import com.referral.outreach.repository.RecruiterRepository;
 import com.referral.outreach.repository.TemplateRepository;
@@ -15,6 +17,7 @@ import com.referral.outreach.repository.ResumeRepository;
 import com.referral.outreach.repository.EmailHistoryRepository;
 import com.referral.outreach.service.CampaignService;
 import com.referral.outreach.service.MailService;
+import com.referral.outreach.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,6 +39,7 @@ public class CampaignServiceImpl implements CampaignService {
     private final RecruiterRepository recruiterRepository;
     private final MailService mailService;
     private final EmailHistoryRepository emailHistoryRepository;
+    private final SecurityUtils securityUtils;
 
     @Value("${app.scheduler.cooldown-days:30}")
     private int cooldownDays;
@@ -43,24 +47,37 @@ public class CampaignServiceImpl implements CampaignService {
     @Override
     @Transactional
     public CampaignResponse createCampaign(CampaignRequest request) {
-        log.info("Creating campaign: {}", request.getName());
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Creating campaign: {} for user: {}", request.getName(), user.getUsername());
+        
         EmailTemplate template = templateRepository.findById(request.getTemplateId())
                 .orElseThrow(() -> new ResourceNotFoundException("Template not found with ID: " + request.getTemplateId()));
 
+        if (!template.getUser().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Template not found with ID: " + request.getTemplateId());
+        }
+
         Resume resume = resumeRepository.findById(request.getResumeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Resume not found with ID: " + request.getResumeId()));
+
+        if (!resume.getUser().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Resume not found with ID: " + request.getResumeId());
+        }
 
         Campaign campaign = Campaign.builder()
                 .name(request.getName())
                 .emailTemplate(template)
                 .resume(resume)
                 .isEnabled(request.isEnabled())
+                .targetSet(request.getTargetSet())
+                .targetTitleGroup(request.getTargetTitleGroup() != null ? request.getTargetTitleGroup() : "ALL")
+                .user(user)
                 .build();
 
         Campaign saved = campaignRepository.save(campaign);
         
         if (saved.isEnabled()) {
-            campaignRepository.disableOthers(saved.getId());
+            campaignRepository.disableOthers(saved.getId(), user.getId());
         }
 
         log.info("Created campaign ID: {} successfully", saved.getId());
@@ -70,25 +87,41 @@ public class CampaignServiceImpl implements CampaignService {
     @Override
     @Transactional
     public CampaignResponse updateCampaign(Long id, CampaignRequest request) {
-        log.info("Updating campaign ID: {}", id);
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Updating campaign ID: {} for user: {}", id, user.getUsername());
+        
         Campaign campaign = campaignRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Campaign not found with ID: " + id));
+
+        if (!campaign.getUser().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Campaign not found with ID: " + id);
+        }
 
         EmailTemplate template = templateRepository.findById(request.getTemplateId())
                 .orElseThrow(() -> new ResourceNotFoundException("Template not found with ID: " + request.getTemplateId()));
 
+        if (!template.getUser().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Template not found with ID: " + request.getTemplateId());
+        }
+
         Resume resume = resumeRepository.findById(request.getResumeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Resume not found with ID: " + request.getResumeId()));
+
+        if (!resume.getUser().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Resume not found with ID: " + request.getResumeId());
+        }
 
         campaign.setName(request.getName());
         campaign.setEmailTemplate(template);
         campaign.setResume(resume);
         campaign.setEnabled(request.isEnabled());
+        campaign.setTargetSet(request.getTargetSet());
+        campaign.setTargetTitleGroup(request.getTargetTitleGroup() != null ? request.getTargetTitleGroup() : "ALL");
 
         Campaign updated = campaignRepository.save(campaign);
 
         if (updated.isEnabled()) {
-            campaignRepository.disableOthers(updated.getId());
+            campaignRepository.disableOthers(updated.getId(), user.getId());
         }
 
         log.info("Updated campaign ID: {} successfully", id);
@@ -98,17 +131,25 @@ public class CampaignServiceImpl implements CampaignService {
     @Override
     @Transactional(readOnly = true)
     public CampaignResponse getCampaignById(Long id) {
-        log.info("Fetching campaign ID: {}", id);
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Fetching campaign ID: {} for user: {}", id, user.getUsername());
+        
         Campaign campaign = campaignRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Campaign not found with ID: " + id));
+
+        if (!campaign.getUser().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Campaign not found with ID: " + id);
+        }
+
         return mapToResponse(campaign);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<CampaignResponse> getAllCampaigns() {
-        log.info("Fetching all campaigns");
-        return campaignRepository.findAll().stream()
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Fetching all campaigns for user: {}", user.getUsername());
+        return campaignRepository.findByUser(user).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
@@ -116,23 +157,35 @@ public class CampaignServiceImpl implements CampaignService {
     @Override
     @Transactional
     public void deleteCampaign(Long id) {
-        log.info("Deleting campaign ID: {}", id);
-        if (!campaignRepository.existsById(id)) {
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Deleting campaign ID: {} for user: {}", id, user.getUsername());
+        
+        Campaign campaign = campaignRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Campaign not found with ID: " + id));
+
+        if (!campaign.getUser().getId().equals(user.getId())) {
             throw new ResourceNotFoundException("Campaign not found with ID: " + id);
         }
-        emailHistoryRepository.deleteByCampaignId(id);
-        campaignRepository.deleteById(id);
+
+        emailHistoryRepository.deleteByCampaignIdAndUserId(id, user.getId());
+        campaignRepository.delete(campaign);
         log.info("Deleted campaign ID: {} successfully", id);
     }
 
     @Override
     @Transactional
     public CampaignResponse enableCampaign(Long id) {
-        log.info("Enabling campaign ID: {}", id);
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Enabling campaign ID: {} for user: {}", id, user.getUsername());
+        
         Campaign campaign = campaignRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Campaign not found with ID: " + id));
 
-        campaignRepository.disableOthers(id);
+        if (!campaign.getUser().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Campaign not found with ID: " + id);
+        }
+
+        campaignRepository.disableOthers(id, user.getId());
         campaign.setEnabled(true);
         Campaign updated = campaignRepository.save(campaign);
         log.info("Campaign ID: {} enabled successfully", id);
@@ -142,9 +195,15 @@ public class CampaignServiceImpl implements CampaignService {
     @Override
     @Transactional
     public CampaignResponse disableCampaign(Long id) {
-        log.info("Disabling campaign ID: {}", id);
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Disabling campaign ID: {} for user: {}", id, user.getUsername());
+        
         Campaign campaign = campaignRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Campaign not found with ID: " + id));
+
+        if (!campaign.getUser().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Campaign not found with ID: " + id);
+        }
 
         campaign.setEnabled(false);
         Campaign updated = campaignRepository.save(campaign);
@@ -155,9 +214,15 @@ public class CampaignServiceImpl implements CampaignService {
     @Override
     @Transactional(readOnly = true)
     public PreviewResponse previewCampaignEmail(Long campaignId, Long recruiterId) {
-        log.info("Generating email preview for campaign ID: {} and recruiter ID: {}", campaignId, recruiterId);
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Generating email preview for campaign ID: {} and recruiter ID: {} by user: {}", campaignId, recruiterId, user.getUsername());
+        
         Campaign campaign = campaignRepository.findById(campaignId)
                 .orElseThrow(() -> new ResourceNotFoundException("Campaign not found with ID: " + campaignId));
+
+        if (!campaign.getUser().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Campaign not found with ID: " + campaignId);
+        }
 
         Recruiter recruiter = recruiterRepository.findById(recruiterId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recruiter not found with ID: " + recruiterId));
@@ -173,36 +238,59 @@ public class CampaignServiceImpl implements CampaignService {
     }
 
     @Override
-    @Transactional
     public void triggerCampaignManually(Long campaignId, Long recruiterId) {
-        log.info("Manually triggering campaign ID: {} for recruiter ID: {}", campaignId, recruiterId);
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Manually triggering campaign ID: {} for recruiter ID: {} by user: {}", campaignId, recruiterId, user.getUsername());
+        
         Campaign campaign = campaignRepository.findById(campaignId)
                 .orElseThrow(() -> new ResourceNotFoundException("Campaign not found with ID: " + campaignId));
 
-        mailService.sendOutreachEmail(
+        if (!campaign.getUser().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Campaign not found with ID: " + campaignId);
+        }
+
+        boolean success = mailService.sendOutreachEmail(
                 recruiterId, 
                 campaign.getEmailTemplate().getId(), 
                 campaign.getResume().getId(), 
                 campaignId
         );
+        if (!success) {
+            throw new MailSendingException("Failed to send outreach email to recruiter ID: " + recruiterId);
+        }
         log.info("Manually triggered campaign ID: {} completed successfully", campaignId);
     }
 
     @Override
     @Transactional
     public int triggerCampaignBatch(Long campaignId, int limit) {
-        log.info("Batch triggering campaign ID: {} with limit: {}", campaignId, limit);
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Batch triggering campaign ID: {} with limit: {} by user: {}", campaignId, limit, user.getUsername());
+        
         Campaign campaign = campaignRepository.findById(campaignId)
                 .orElseThrow(() -> new ResourceNotFoundException("Campaign not found with ID: " + campaignId));
+
+        if (!campaign.getUser().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Campaign not found with ID: " + campaignId);
+        }
 
         if (campaign.getEmailTemplate() == null || campaign.getResume() == null) {
             throw new IllegalArgumentException("Campaign is missing template or resume association");
         }
 
         LocalDateTime cooldownLimit = LocalDateTime.now().minusDays(cooldownDays);
-        List<Recruiter> eligibleRecruiters = recruiterRepository.findEligibleRecruiters(
+        String groupStr = campaign.getTargetTitleGroup() != null ? campaign.getTargetTitleGroup() : "ALL";
+        List<String> groups = java.util.Arrays.stream(groupStr.split(","))
+                .map(String::trim)
+                .collect(Collectors.toList());
+        boolean isAllGroup = groups.contains("ALL") || groups.isEmpty();
+
+        List<Recruiter> eligibleRecruiters = recruiterRepository.findEligibleRecruitersFiltered(
                 com.referral.outreach.entity.RecruiterStatus.ACTIVE, 
-                cooldownLimit
+                cooldownLimit,
+                campaign.getTargetSet(),
+                groups,
+                isAllGroup
         );
 
         List<Recruiter> batch = eligibleRecruiters.stream()
@@ -215,7 +303,7 @@ public class CampaignServiceImpl implements CampaignService {
 
         // Run the dispatches asynchronously in a background thread to prevent HTTP blocking
         new Thread(() -> {
-            log.info("Starting background batch outreach of size {} for campaign ID: {}", batch.size(), campaignId);
+            log.info("Starting background batch outreach of size {} for campaign ID: {} by user: {}", batch.size(), campaignId, user.getUsername());
             int successCount = 0;
             int failureCount = 0;
             for (Recruiter recruiter : batch) {
@@ -227,13 +315,17 @@ public class CampaignServiceImpl implements CampaignService {
                         break;
                     }
 
-                    mailService.sendOutreachEmail(
+                    boolean success = mailService.sendOutreachEmail(
                             recruiter.getId(),
                             campaign.getEmailTemplate().getId(),
                             campaign.getResume().getId(),
                             campaignId
                     );
-                    successCount++;
+                    if (success) {
+                        successCount++;
+                    } else {
+                        failureCount++;
+                    }
 
                     // 2-second rate-limiting delay between dispatches
                     Thread.sleep(2000);
@@ -263,6 +355,8 @@ public class CampaignServiceImpl implements CampaignService {
                 .resumeId(campaign.getResume().getId())
                 .resumeFilename(campaign.getResume().getOriginalFilename())
                 .isEnabled(campaign.isEnabled())
+                .targetSet(campaign.getTargetSet())
+                .targetTitleGroup(campaign.getTargetTitleGroup())
                 .createdTimestamp(campaign.getCreatedTimestamp())
                 .build();
     }

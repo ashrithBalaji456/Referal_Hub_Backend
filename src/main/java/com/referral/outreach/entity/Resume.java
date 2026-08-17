@@ -39,4 +39,8 @@ public class Resume {
     @CreationTimestamp
     @Column(name = "uploaded_timestamp", nullable = false, updatable = false)
     private LocalDateTime uploadedTimestamp;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 }

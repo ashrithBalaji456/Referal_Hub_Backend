@@ -3,9 +3,11 @@ package com.referral.outreach.service.impl;
 import com.referral.outreach.dto.TemplateRequest;
 import com.referral.outreach.dto.TemplateResponse;
 import com.referral.outreach.entity.EmailTemplate;
+import com.referral.outreach.entity.User;
 import com.referral.outreach.exception.DuplicateTemplateException;
 import com.referral.outreach.exception.ResourceNotFoundException;
 import com.referral.outreach.repository.TemplateRepository;
+import com.referral.outreach.security.SecurityUtils;
 import com.referral.outreach.service.TemplateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,12 +23,15 @@ import java.util.stream.Collectors;
 public class TemplateServiceImpl implements TemplateService {
 
     private final TemplateRepository templateRepository;
+    private final SecurityUtils securityUtils;
 
     @Override
     @Transactional
     public TemplateResponse createTemplate(TemplateRequest request) {
-        log.info("Creating email template with name: {}", request.getTemplateName());
-        if (templateRepository.existsByTemplateName(request.getTemplateName())) {
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Creating email template with name: {} for user: {}", request.getTemplateName(), user.getUsername());
+        
+        if (templateRepository.existsByUserAndTemplateName(user, request.getTemplateName())) {
             throw new DuplicateTemplateException("Template with name " + request.getTemplateName() + " already exists");
         }
 
@@ -34,6 +39,7 @@ public class TemplateServiceImpl implements TemplateService {
                 .templateName(request.getTemplateName())
                 .subject(request.getSubject())
                 .body(request.getBody())
+                .user(user)
                 .build();
 
         EmailTemplate savedTemplate = templateRepository.save(template);
@@ -44,11 +50,17 @@ public class TemplateServiceImpl implements TemplateService {
     @Override
     @Transactional
     public TemplateResponse updateTemplate(Long id, TemplateRequest request) {
-        log.info("Updating email template ID: {}", id);
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Updating email template ID: {} for user: {}", id, user.getUsername());
+        
         EmailTemplate template = templateRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Template not found with ID: " + id));
 
-        if (templateRepository.existsByTemplateNameAndIdNot(request.getTemplateName(), id)) {
+        if (!template.getUser().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Template not found with ID: " + id);
+        }
+
+        if (templateRepository.existsByUserAndTemplateNameAndIdNot(user, request.getTemplateName(), id)) {
             throw new DuplicateTemplateException("Another template with name " + request.getTemplateName() + " already exists");
         }
 
@@ -64,17 +76,25 @@ public class TemplateServiceImpl implements TemplateService {
     @Override
     @Transactional(readOnly = true)
     public TemplateResponse getTemplateById(Long id) {
-        log.info("Fetching template ID: {}", id);
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Fetching template ID: {} for user: {}", id, user.getUsername());
+        
         EmailTemplate template = templateRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Template not found with ID: " + id));
+
+        if (!template.getUser().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Template not found with ID: " + id);
+        }
+
         return mapToResponse(template);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<TemplateResponse> getAllTemplates() {
-        log.info("Fetching all templates");
-        return templateRepository.findAll().stream()
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Fetching all templates for user: {}", user.getUsername());
+        return templateRepository.findByUser(user).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
@@ -82,11 +102,17 @@ public class TemplateServiceImpl implements TemplateService {
     @Override
     @Transactional
     public void deleteTemplate(Long id) {
-        log.info("Deleting template ID: {}", id);
-        if (!templateRepository.existsById(id)) {
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Deleting template ID: {} for user: {}", id, user.getUsername());
+        
+        EmailTemplate template = templateRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Template not found with ID: " + id));
+
+        if (!template.getUser().getId().equals(user.getId())) {
             throw new ResourceNotFoundException("Template not found with ID: " + id);
         }
-        templateRepository.deleteById(id);
+
+        templateRepository.delete(template);
         log.info("Deleted template ID: {} successfully", id);
     }
 

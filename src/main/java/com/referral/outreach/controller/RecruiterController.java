@@ -66,4 +66,29 @@ public class RecruiterController {
         RecruiterResponse response = recruiterService.updateStatus(id, status);
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/import")
+    public ResponseEntity<Integer> importRecruiters(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam(value = "setNumber", defaultValue = "1") Integer setNumber) {
+        log.info("REST request to import recruiters for contact set: {}", setNumber);
+        int count = recruiterService.importRecruitersFromCsv(file, setNumber);
+        return ResponseEntity.ok(count);
+    }
+
+    @GetMapping("/export")
+    public ResponseEntity<byte[]> exportRecruiters(
+            @RequestParam(value = "setNumber", required = false) Integer setNumber) {
+        log.info("REST request to export recruiters for contact set: {}", setNumber);
+        byte[] csvBytes = recruiterService.exportRecruitersToCsv(setNumber);
+
+        String filename = (setNumber != null && setNumber > 0)
+                ? "recruiters_set_" + setNumber + ".csv"
+                : "recruiters_all.csv";
+
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "text/csv; charset=UTF-8")
+                .body(csvBytes);
+    }
 }

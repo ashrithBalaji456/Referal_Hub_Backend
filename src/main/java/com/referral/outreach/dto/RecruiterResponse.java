@@ -1,7 +1,6 @@
 package com.referral.outreach.dto;
 
 import com.referral.outreach.entity.RecruiterStatus;
-import com.referral.outreach.entity.RoleCategory;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,8 +15,9 @@ public class RecruiterResponse {
     private Long id;
     private String name;
     private String email;
+    private String title;
     private String company;
-    private RoleCategory roleCategory;
     private RecruiterStatus status;
+    private Integer contactSet;
     private LocalDateTime lastContactedDate;
 }

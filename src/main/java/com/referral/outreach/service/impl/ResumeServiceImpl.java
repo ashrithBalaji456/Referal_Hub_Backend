@@ -2,9 +2,12 @@ package com.referral.outreach.service.impl;
 
 import com.referral.outreach.dto.ResumeResponse;
 import com.referral.outreach.entity.Resume;
+import com.referral.outreach.entity.User;
 import com.referral.outreach.exception.InvalidFileException;
 import com.referral.outreach.exception.ResourceNotFoundException;
+import com.referral.outreach.repository.CampaignRepository;
 import com.referral.outreach.repository.ResumeRepository;
+import com.referral.outreach.security.SecurityUtils;
 import com.referral.outreach.service.ResumeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +32,8 @@ import java.util.stream.Collectors;
 public class ResumeServiceImpl implements ResumeService {
 
     private final ResumeRepository resumeRepository;
+    private final CampaignRepository campaignRepository;
+    private final SecurityUtils securityUtils;
 
     @Value("${app.upload.dir:./uploads/resumes}")
     private String uploadDir;
@@ -36,6 +41,7 @@ public class ResumeServiceImpl implements ResumeService {
     @Override
     @Transactional
     public ResumeResponse uploadResume(MultipartFile file) {
+        User user = securityUtils.getAuthenticatedUser();
         if (file.isEmpty()) {
             throw new InvalidFileException("Cannot upload an empty file");
         }
@@ -43,7 +49,7 @@ public class ResumeServiceImpl implements ResumeService {
         String contentType = file.getContentType();
         String originalFilename = file.getOriginalFilename();
 
-        log.info("Starting upload for file: {}, Content-Type: {}", originalFilename, contentType);
+        log.info("Starting upload for file: {}, Content-Type: {} by user: {}", originalFilename, contentType, user.getUsername());
 
         // Validate content type and file extension
         if (contentType == null || !contentType.equalsIgnoreCase("application/pdf")) {
@@ -80,6 +86,7 @@ public class ResumeServiceImpl implements ResumeService {
                     .fileSize(file.getSize())
                     .contentType(contentType)
                     .isActive(false) // Not active by default
+                    .user(user)
                     .build();
 
             Resume savedResume = resumeRepository.save(resume);
@@ -95,17 +102,25 @@ public class ResumeServiceImpl implements ResumeService {
     @Override
     @Transactional(readOnly = true)
     public ResumeResponse getResumeById(Long id) {
-        log.info("Fetching resume metadata for ID: {}", id);
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Fetching resume metadata for ID: {} by user: {}", id, user.getUsername());
+        
         Resume resume = resumeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Resume not found with ID: " + id));
+
+        if (!resume.getUser().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Resume not found with ID: " + id);
+        }
+
         return mapToResponse(resume);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<ResumeResponse> getAllResumes() {
-        log.info("Fetching all resume metadata");
-        return resumeRepository.findAll().stream()
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Fetching all resume metadata for user: {}", user.getUsername());
+        return resumeRepository.findByUser(user).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
@@ -113,9 +128,19 @@ public class ResumeServiceImpl implements ResumeService {
     @Override
     @Transactional
     public void deleteResume(Long id) {
-        log.info("Deleting resume metadata and file for ID: {}", id);
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Deleting resume metadata and file for ID: {} by user: {}", id, user.getUsername());
+        
         Resume resume = resumeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Resume not found with ID: " + id));
+
+        if (!resume.getUser().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Resume not found with ID: " + id);
+        }
+
+        if (campaignRepository.existsByUserAndResumeId(user, id)) {
+            throw new IllegalArgumentException("Cannot delete resume because it is currently used in one or more campaigns.");
+        }
 
         // Delete physical file
         try {
@@ -133,12 +158,18 @@ public class ResumeServiceImpl implements ResumeService {
     @Override
     @Transactional
     public ResumeResponse markAsActive(Long id) {
-        log.info("Marking resume ID: {} as active", id);
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Marking resume ID: {} as active for user: {}", id, user.getUsername());
+        
         Resume resume = resumeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Resume not found with ID: " + id));
 
-        // Deactivate all others
-        resumeRepository.deactivateOthers(id);
+        if (!resume.getUser().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Resume not found with ID: " + id);
+        }
+
+        // Deactivate all others belonging to this user
+        resumeRepository.deactivateOthers(id, user.getId());
 
         resume.setActive(true);
         Resume updated = resumeRepository.save(resume);
@@ -149,8 +180,9 @@ public class ResumeServiceImpl implements ResumeService {
     @Override
     @Transactional(readOnly = true)
     public ResumeResponse getActiveResume() {
-        log.info("Fetching active resume");
-        Resume resume = resumeRepository.findByIsActiveTrue()
+        User user = securityUtils.getAuthenticatedUser();
+        log.info("Fetching active resume for user: {}", user.getUsername());
+        Resume resume = resumeRepository.findByUserAndIsActiveTrue(user)
                 .orElseThrow(() -> new ResourceNotFoundException("No active resume found"));
         return mapToResponse(resume);
     }

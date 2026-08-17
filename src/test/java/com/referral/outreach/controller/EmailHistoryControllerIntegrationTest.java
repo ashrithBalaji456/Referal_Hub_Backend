@@ -48,6 +48,9 @@ public class EmailHistoryControllerIntegrationTest {
     @Autowired
     private ResumeRepository resumeRepository;
 
+    @Autowired
+    private com.referral.outreach.repository.UserRepository userRepository;
+
     private Recruiter recruiter1;
     private Recruiter recruiter2;
     private Campaign campaign;
@@ -59,20 +62,34 @@ public class EmailHistoryControllerIntegrationTest {
         recruiterRepository.deleteAll();
         templateRepository.deleteAll();
         resumeRepository.deleteAll();
+        userRepository.deleteAll();
+
+        // Seed and authenticate test user
+        User testUser = userRepository.save(User.builder()
+                .username("testuser")
+                .email("testuser@gmail.com")
+                .password("password")
+                .build());
+
+        com.referral.outreach.security.UserPrincipal principal = com.referral.outreach.security.UserPrincipal.create(testUser);
+        org.springframework.security.authentication.UsernamePasswordAuthenticationToken auth = 
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        principal, null, java.util.Collections.emptyList());
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
 
         recruiter1 = recruiterRepository.save(Recruiter.builder()
                 .name("Alice")
                 .email("alice@netflix.com")
+                .title("Recruitment Specialist")
                 .company("Netflix")
-                .roleCategory(RoleCategory.JAVA_BACKEND_DEVELOPER)
                 .status(RecruiterStatus.ACTIVE)
                 .build());
 
         recruiter2 = recruiterRepository.save(Recruiter.builder()
                 .name("Bob")
                 .email("bob@meta.com")
+                .title("HR Manager")
                 .company("Meta")
-                .roleCategory(RoleCategory.SPRING_BOOT_DEVELOPER)
                 .status(RecruiterStatus.ACTIVE)
                 .build());
 
@@ -80,6 +97,7 @@ public class EmailHistoryControllerIntegrationTest {
                 .templateName("Template")
                 .subject("Sub")
                 .body("Body")
+                .user(testUser)
                 .build());
 
         Resume resume = resumeRepository.save(Resume.builder()
@@ -89,6 +107,7 @@ public class EmailHistoryControllerIntegrationTest {
                 .fileSize(100L)
                 .contentType("application/pdf")
                 .isActive(true)
+                .user(testUser)
                 .build());
 
         campaign = campaignRepository.save(Campaign.builder()
@@ -96,6 +115,7 @@ public class EmailHistoryControllerIntegrationTest {
                 .emailTemplate(template)
                 .resume(resume)
                 .isEnabled(true)
+                .user(testUser)
                 .build());
 
         // Save some history entries
@@ -106,6 +126,7 @@ public class EmailHistoryControllerIntegrationTest {
                 .subjectUsed("Netflix Subject")
                 .sentTimestamp(LocalDateTime.now().minusDays(5))
                 .status(EmailHistoryStatus.SUCCESS)
+                .user(testUser)
                 .build());
 
         emailHistoryRepository.save(EmailHistory.builder()
@@ -116,6 +137,7 @@ public class EmailHistoryControllerIntegrationTest {
                 .sentTimestamp(LocalDateTime.now().minusDays(1))
                 .status(EmailHistoryStatus.FAILED)
                 .errorMessage("SMTP Error")
+                .user(testUser)
                 .build());
     }
 
