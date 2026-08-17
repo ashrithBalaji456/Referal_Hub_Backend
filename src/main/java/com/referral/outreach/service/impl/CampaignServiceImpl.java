@@ -301,46 +301,56 @@ public class CampaignServiceImpl implements CampaignService {
             return 0;
         }
 
+        org.springframework.security.core.context.SecurityContext securityContext = 
+                org.springframework.security.core.context.SecurityContextHolder.getContext();
+
         // Run the dispatches asynchronously in a background thread to prevent HTTP blocking
         new Thread(() -> {
-            log.info("Starting background batch outreach of size {} for campaign ID: {} by user: {}", batch.size(), campaignId, user.getUsername());
-            int successCount = 0;
-            int failureCount = 0;
-            for (Recruiter recruiter : batch) {
-                try {
-                    // Check if campaign was disabled mid-flight
-                    Campaign current = campaignRepository.findById(campaignId).orElse(null);
-                    if (current == null || !current.isEnabled()) {
-                        log.info("Campaign ID: {} was disabled or deleted. Aborting batch outreach.", campaignId);
-                        break;
-                    }
-
-                    boolean success = mailService.sendOutreachEmail(
-                            recruiter.getId(),
-                            campaign.getEmailTemplate().getId(),
-                            campaign.getResume().getId(),
-                            campaignId
-                    );
-                    if (success) {
-                        successCount++;
-                    } else {
-                        failureCount++;
-                    }
-
-                    // 2-second rate-limiting delay between dispatches
-                    Thread.sleep(2000);
-                } catch (InterruptedException ie) {
-                    log.warn("Batch outreach thread interrupted.");
-                    Thread.currentThread().interrupt();
-                    break;
-                } catch (Exception ex) {
-                    failureCount++;
-                    log.error("Failed to send batch outreach email to recruiter: {} ({})", 
-                            recruiter.getName(), recruiter.getEmail(), ex);
+            try {
+                if (securityContext != null) {
+                    org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
                 }
+                log.info("Starting background batch outreach of size {} for campaign ID: {} by user: {}", batch.size(), campaignId, user.getUsername());
+                int successCount = 0;
+                int failureCount = 0;
+                for (Recruiter recruiter : batch) {
+                    try {
+                        // Check if campaign was disabled mid-flight
+                        Campaign current = campaignRepository.findById(campaignId).orElse(null);
+                        if (current == null || !current.isEnabled()) {
+                            log.info("Campaign ID: {} was disabled or deleted. Aborting batch outreach.", campaignId);
+                            break;
+                        }
+
+                        boolean success = mailService.sendOutreachEmail(
+                                recruiter.getId(),
+                                campaign.getEmailTemplate().getId(),
+                                campaign.getResume().getId(),
+                                campaignId
+                        );
+                        if (success) {
+                            successCount++;
+                        } else {
+                            failureCount++;
+                        }
+
+                        // 2-second rate-limiting delay between dispatches
+                        Thread.sleep(2000);
+                    } catch (InterruptedException ie) {
+                        log.warn("Batch outreach thread interrupted.");
+                        Thread.currentThread().interrupt();
+                        break;
+                    } catch (Exception ex) {
+                        failureCount++;
+                        log.error("Failed to send batch outreach email to recruiter: {} ({})", 
+                                recruiter.getName(), recruiter.getEmail(), ex);
+                    }
+                }
+                log.info("Finished background batch outreach for campaign ID: {}. Success: {}, Failures: {}", 
+                        campaignId, successCount, failureCount);
+            } finally {
+                org.springframework.security.core.context.SecurityContextHolder.clearContext();
             }
-            log.info("Finished background batch outreach for campaign ID: {}. Success: {}, Failures: {}", 
-                    campaignId, successCount, failureCount);
         }).start();
 
         return batch.size();

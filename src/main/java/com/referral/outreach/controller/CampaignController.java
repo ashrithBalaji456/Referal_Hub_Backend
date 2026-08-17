@@ -118,14 +118,24 @@ public class CampaignController {
             @RequestBody java.util.List<Long> recruiterIds) {
         log.info("REST request to trigger campaign: {} for multiple recruiters: {}", id, recruiterIds);
         
+        org.springframework.security.core.context.SecurityContext securityContext = 
+                org.springframework.security.core.context.SecurityContextHolder.getContext();
+
         // Execute outreach asynchronously in a background thread to prevent HTTP request timeout
         java.util.concurrent.CompletableFuture.runAsync(() -> {
-            for (Long rId : recruiterIds) {
-                try {
-                    campaignService.triggerCampaignManually(id, rId);
-                } catch (Exception ex) {
-                    log.error("Failed to manually trigger campaign ID: {} for recruiter ID: {}. Error: {}", id, rId, ex.getMessage());
+            try {
+                if (securityContext != null) {
+                    org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
                 }
+                for (Long rId : recruiterIds) {
+                    try {
+                        campaignService.triggerCampaignManually(id, rId);
+                    } catch (Exception ex) {
+                        log.error("Failed to manually trigger campaign ID: {} for recruiter ID: {}. Error: {}", id, rId, ex.getMessage(), ex);
+                    }
+                }
+            } finally {
+                org.springframework.security.core.context.SecurityContextHolder.clearContext();
             }
         });
         
