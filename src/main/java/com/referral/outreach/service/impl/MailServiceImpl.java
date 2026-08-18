@@ -4,15 +4,11 @@ import com.referral.outreach.entity.*;
 import com.referral.outreach.exception.MailSendingException;
 import com.referral.outreach.exception.ResourceNotFoundException;
 import com.referral.outreach.repository.*;
+import com.referral.outreach.service.BrevoClient;
 import com.referral.outreach.service.MailService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.referral.outreach.service.CandidateProfileService;
 import com.referral.outreach.util.TemplateParser;
-import com.resend.Resend;
-import com.resend.services.emails.model.Attachment;
-import com.resend.services.emails.model.CreateEmailOptions;
-import com.resend.services.emails.model.CreateEmailResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,7 +24,7 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class MailServiceImpl implements MailService {
 
-    private final Resend resend;
+    private final BrevoClient brevoClient;
     private final RecruiterRepository recruiterRepository;
     private final TemplateRepository templateRepository;
     private final ResumeRepository resumeRepository;
@@ -37,9 +33,6 @@ public class MailServiceImpl implements MailService {
     private final CandidateProfileRepository candidateProfileRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
-
-    @Value("${resend.from.email:onboarding@resend.dev}")
-    private String fromEmail;
 
     @Value("${app.candidate-name:Gudla Ashrith Balaji}")
     private String candidateName;
@@ -147,20 +140,19 @@ public class MailServiceImpl implements MailService {
                 vars
         );
 
-        log.info("Sending email through Resend to recruiter: {} ({}) for company: {}", 
+        log.info("Sending email through Brevo to recruiter: {} ({}) for company: {}", 
                 recruiter.getName(), recruiter.getEmail(), recruiter.getCompany());
 
         try {
-            Attachment attachment = null;
+            String attachmentName = null;
+            String base64Content = null;
+
             if (resume != null && resume.getFilePath() != null) {
                 File file = new File(resume.getFilePath());
                 if (file.exists()) {
                     byte[] fileBytes = Files.readAllBytes(file.toPath());
-                    String base64Content = java.util.Base64.getEncoder().encodeToString(fileBytes);
-                    attachment = Attachment.builder()
-                            .fileName(resume.getOriginalFilename())
-                            .content(base64Content)
-                            .build();
+                    base64Content = java.util.Base64.getEncoder().encodeToString(fileBytes);
+                    attachmentName = resume.getOriginalFilename();
                     log.info("Attached resume: {} (size: {} bytes)", resume.getOriginalFilename(), fileBytes.length);
                 } else {
                     log.warn("Physical resume file not found at {}. Sending email without resume attachment.", resume.getFilePath());
@@ -169,23 +161,15 @@ public class MailServiceImpl implements MailService {
                 log.info("No active resume attached to campaign. Sending email without resume attachment.");
             }
 
-            CreateEmailOptions.Builder optionsBuilder = CreateEmailOptions.builder()
-                    .from(fromEmail)
-                    .to(recruiter.getEmail())
-                    .subject(compiledSubject)
-                    .text(compiledBody);
-
-            if (attachment != null) {
-                optionsBuilder.attachments(attachment);
-            }
-
-            CreateEmailOptions options = optionsBuilder.build();
-
-            log.info("Executing Resend API call -> From: {}, To: {}, Subject: {}", fromEmail, recruiter.getEmail(), compiledSubject);
-            CreateEmailResponse response = resend.emails().send(options);
-            String resendId = response != null ? response.getId() : "unknown";
-
-            log.info("Email successfully sent through Resend. Recipient: {}, Resend ID: {}", recruiter.getEmail(), resendId);
+            String messageId = brevoClient.sendEmail(
+                    recruiter.getEmail(),
+                    recruiter.getName(),
+                    compiledSubject,
+                    compiledBody,
+                    null,
+                    attachmentName,
+                    base64Content
+            );
 
             // Log Success
             recruiter.setLastContactedDate(LocalDateTime.now());
@@ -201,10 +185,11 @@ public class MailServiceImpl implements MailService {
                     .build();
             emailHistoryRepository.save(history);
 
+            log.info("Email sent successfully through Brevo. Recipient: {}, Message ID: {}", recruiter.getEmail(), messageId);
             return true;
 
         } catch (Exception ex) {
-            log.error("Resend email delivery failed for recipient: {} (Company: {}). Root cause: {}", 
+            log.error("Brevo email delivery failed for recipient: {} (Company: {}). Root cause: {}", 
                     recruiter.getEmail(), recruiter.getCompany(), ex.getMessage(), ex);
 
             EmailHistory history = EmailHistory.builder()
@@ -231,15 +216,14 @@ public class MailServiceImpl implements MailService {
         EmailTemplate template = templateRepository.findById(templateId)
                 .orElseThrow(() -> new ResourceNotFoundException("Template not found with ID: " + templateId));
 
-        User user = null;
-        org.springframework.security.core.Authentication auth = 
-            org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof com.referral.outreach.security.UserPrincipal) {
-            com.referral.outreach.security.UserPrincipal principal = (com.referral.outreach.security.UserPrincipal) auth.getPrincipal();
-            user = userRepository.findById(principal.getId()).orElse(null);
-        }
-        if (user == null && template.getUser() != null) {
-            user = template.getUser();
+        User user = template.getUser();
+        if (user == null) {
+            org.springframework.security.core.Authentication auth = 
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof com.referral.outreach.security.UserPrincipal) {
+                com.referral.outreach.security.UserPrincipal principal = (com.referral.outreach.security.UserPrincipal) auth.getPrincipal();
+                user = userRepository.findById(principal.getId()).orElse(null);
+            }
         }
 
         java.util.Map<String, String> vars = getCandidateVariables(user);
@@ -261,15 +245,14 @@ public class MailServiceImpl implements MailService {
         EmailTemplate template = templateRepository.findById(templateId)
                 .orElseThrow(() -> new ResourceNotFoundException("Template not found with ID: " + templateId));
 
-        User user = null;
-        org.springframework.security.core.Authentication auth = 
-            org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof com.referral.outreach.security.UserPrincipal) {
-            com.referral.outreach.security.UserPrincipal principal = (com.referral.outreach.security.UserPrincipal) auth.getPrincipal();
-            user = userRepository.findById(principal.getId()).orElse(null);
-        }
-        if (user == null && template.getUser() != null) {
-            user = template.getUser();
+        User user = template.getUser();
+        if (user == null) {
+            org.springframework.security.core.Authentication auth = 
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof com.referral.outreach.security.UserPrincipal) {
+                com.referral.outreach.security.UserPrincipal principal = (com.referral.outreach.security.UserPrincipal) auth.getPrincipal();
+                user = userRepository.findById(principal.getId()).orElse(null);
+            }
         }
 
         java.util.Map<String, String> vars = getCandidateVariables(user);
@@ -283,41 +266,27 @@ public class MailServiceImpl implements MailService {
     }
 
     @Override
+    @Transactional
     public void sendPasswordResetEmail(String recipientEmail, String token) {
         log.info("Sending password reset email to: {}", recipientEmail);
-        try {
-            String resetLink = "http://localhost:5173/reset-password?token=" + token;
-            log.info("==================================================================");
-            log.info("PASSWORD RESET LINK GENERATED FOR [{}]:", recipientEmail);
-            log.info("--> {}", resetLink);
-            log.info("==================================================================");
-            
-            String htmlContent = "<div style='font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;'>" +
-                    "<h2 style='color: #4f46e5; margin-bottom: 20px;'>Password Reset Request</h2>" +
-                    "<p>Hello,</p>" +
-                    "<p>We received a request to reset your password for your Outreach Portal account. Click the button below to set a new password:</p>" +
-                    "<div style='text-align: center; margin: 30px 0;'>" +
-                    "<a href='" + resetLink + "' style='background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;'>Reset Password</a>" +
-                    "</div>" +
-                    "<p>If you did not request this, you can safely ignore this email.</p>" +
-                    "<hr style='border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;' />" +
-                    "<p style='font-size: 12px; color: #64748b;'>If the button above does not work, copy and paste this URL into your browser:</p>" +
-                    "<p style='font-size: 12px; color: #64748b; word-break: break-all;'>" + resetLink + "</p>" +
-                    "</div>";
-            
-            CreateEmailOptions options = CreateEmailOptions.builder()
-                    .from(fromEmail)
-                    .to(recipientEmail)
-                    .subject("Outreach Portal - Password Reset Request")
-                    .html(htmlContent)
-                    .build();
 
-            CreateEmailResponse response = resend.emails().send(options);
-            log.info("Password reset email sent via Resend to: {}, response ID: {}", recipientEmail, response != null ? response.getId() : "null");
-            log.info("Password reset email sent successfully to: {}", recipientEmail);
-        } catch (Exception e) {
-            log.error("Failed to send password reset email to: {}. Error: {}", recipientEmail, e.getMessage());
-            throw new MailSendingException("Failed to send password reset email: " + e.getMessage(), e);
+        User user = userRepository.findByEmail(recipientEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + recipientEmail));
+
+        String resetUrl = "https://referal-hub-frontend.vercel.app/reset-password?token=" + token;
+        String subject = "Password Reset Request - Referral Hub";
+        String body = "Hello,\n\nYou requested a password reset for your Referral Hub account.\n\n"
+                + "Please click the link below to reset your password:\n"
+                + resetUrl + "\n\n"
+                + "If you did not request this, please ignore this email.\n\n"
+                + "Regards,\nReferral Hub Team";
+
+        try {
+            brevoClient.sendEmail(recipientEmail, user.getUsername(), subject, body, null, null, null);
+            log.info("Password reset email successfully sent through Brevo to: {}", recipientEmail);
+        } catch (Exception ex) {
+            log.error("Failed to send password reset email to: {}", recipientEmail, ex);
+            throw new MailSendingException("Failed to send password reset email: " + ex.getMessage(), ex);
         }
     }
 }

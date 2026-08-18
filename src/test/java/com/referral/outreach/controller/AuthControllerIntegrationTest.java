@@ -51,18 +51,22 @@ public class AuthControllerIntegrationTest {
     private ObjectMapper objectMapper;
 
     @org.springframework.boot.test.mock.mockito.MockBean
-    private com.resend.Resend resend;
+    private com.referral.outreach.service.BrevoClient brevoClient;
 
     @BeforeEach
     public void setup() throws Exception {
         tokenRepository.deleteAll();
         userRepository.deleteAll();
 
-        com.resend.services.emails.Emails mockEmails = org.mockito.Mockito.mock(com.resend.services.emails.Emails.class);
-        org.mockito.Mockito.when(resend.emails()).thenReturn(mockEmails);
-        com.resend.services.emails.model.CreateEmailResponse mockResponse = org.mockito.Mockito.mock(com.resend.services.emails.model.CreateEmailResponse.class);
-        org.mockito.Mockito.when(mockResponse.getId()).thenReturn("resend_reset_123");
-        org.mockito.Mockito.when(mockEmails.send(org.mockito.ArgumentMatchers.any(com.resend.services.emails.model.CreateEmailOptions.class))).thenReturn(mockResponse);
+        org.mockito.Mockito.when(brevoClient.sendEmail(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()
+        )).thenReturn("brevo_reset_123");
     }
 
     @Test

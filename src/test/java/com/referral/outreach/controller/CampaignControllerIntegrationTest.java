@@ -7,10 +7,6 @@ import com.referral.outreach.repository.CampaignRepository;
 import com.referral.outreach.repository.RecruiterRepository;
 import com.referral.outreach.repository.ResumeRepository;
 import com.referral.outreach.repository.TemplateRepository;
-import com.resend.Resend;
-import com.resend.services.emails.Emails;
-import com.resend.services.emails.model.CreateEmailOptions;
-import com.resend.services.emails.model.CreateEmailResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,7 +60,7 @@ public class CampaignControllerIntegrationTest {
     private ObjectMapper objectMapper;
 
     @MockBean
-    private Resend resend;
+    private com.referral.outreach.service.BrevoClient brevoClient;
 
     private EmailTemplate savedTemplate;
     private Resume savedResume;
@@ -124,11 +120,15 @@ public class CampaignControllerIntegrationTest {
                 .status(RecruiterStatus.ACTIVE)
                 .build());
 
-        Emails mockEmails = mock(Emails.class);
-        when(resend.emails()).thenReturn(mockEmails);
-        CreateEmailResponse mockResponse = mock(CreateEmailResponse.class);
-        when(mockResponse.getId()).thenReturn("resend_campaign_123");
-        when(mockEmails.send(any(CreateEmailOptions.class))).thenReturn(mockResponse);
+        when(brevoClient.sendEmail(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()
+        )).thenReturn("brevo_campaign_123");
     }
 
     @Test

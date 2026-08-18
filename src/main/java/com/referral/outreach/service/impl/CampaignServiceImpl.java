@@ -255,6 +255,10 @@ public class CampaignServiceImpl implements CampaignService {
             throw new ResourceNotFoundException("Campaign not found with ID: " + campaignId);
         }
 
+        if (campaign.getEmailTemplate() == null) {
+            throw new IllegalArgumentException("Campaign ID: " + campaignId + " does not have an email template assigned.");
+        }
+
         try {
             boolean success = mailService.sendOutreachEmail(
                     recruiterId, 

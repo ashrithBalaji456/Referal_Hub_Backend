@@ -1,15 +1,9 @@
 package com.referral.outreach.service;
 
 import com.referral.outreach.entity.*;
-import com.referral.outreach.exception.MailSendingException;
 import com.referral.outreach.repository.*;
-import com.resend.Resend;
-import com.resend.services.emails.Emails;
-import com.resend.services.emails.model.CreateEmailOptions;
-import com.resend.services.emails.model.CreateEmailResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -18,11 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @SpringBootTest
@@ -46,9 +40,8 @@ public class MailServiceTest {
     private EmailHistoryRepository emailHistoryRepository;
 
     @MockBean
-    private Resend resend;
+    private BrevoClient brevoClient;
 
-    private Emails mockEmails;
     private Recruiter recruiter;
     private EmailTemplate template;
     private Resume resume;
@@ -90,21 +83,16 @@ public class MailServiceTest {
                 .isActive(true)
                 .build());
 
-        // Setup mock Resend emails service
-        mockEmails = mock(Emails.class);
-        when(resend.emails()).thenReturn(mockEmails);
-
-        CreateEmailResponse mockResponse = mock(CreateEmailResponse.class);
-        when(mockResponse.getId()).thenReturn("resend_123");
-        when(mockEmails.send(any(CreateEmailOptions.class))).thenReturn(mockResponse);
+        when(brevoClient.sendEmail(anyString(), any(), anyString(), anyString(), any(), any(), any()))
+                .thenReturn("brevo_msg_123");
     }
 
     @Test
     public void testSendOutreachEmail_Success() throws Exception {
         mailService.sendOutreachEmail(recruiter.getId(), template.getId(), resume.getId(), null);
 
-        // Verify resend.emails().send() was called
-        verify(mockEmails, times(1)).send(any(CreateEmailOptions.class));
+        // Verify brevoClient.sendEmail was called
+        verify(brevoClient, times(1)).sendEmail(anyString(), any(), anyString(), anyString(), any(), any(), any());
 
         // Verify history was saved with SUCCESS
         List<EmailHistory> historyList = emailHistoryRepository.findAll();
@@ -122,8 +110,9 @@ public class MailServiceTest {
 
     @Test
     public void testSendOutreachEmail_Failure() throws Exception {
-        // Force resend.emails().send() to throw exception
-        doThrow(new RuntimeException("Resend API rate limit exceeded")).when(mockEmails).send(any(CreateEmailOptions.class));
+        // Force brevoClient.sendEmail to throw exception
+        doThrow(new RuntimeException("Brevo API rate limit exceeded"))
+                .when(brevoClient).sendEmail(anyString(), any(), anyString(), anyString(), any(), any(), any());
 
         boolean success = mailService.sendOutreachEmail(recruiter.getId(), template.getId(), resume.getId(), null);
         assertFalse(success);
@@ -133,7 +122,7 @@ public class MailServiceTest {
         assertEquals(1, historyList.size());
         EmailHistory history = historyList.get(0);
         assertEquals(EmailHistoryStatus.FAILED, history.getStatus());
-        assertEquals("Resend API rate limit exceeded", history.getErrorMessage());
+        assertEquals("Brevo API rate limit exceeded", history.getErrorMessage());
 
         // Verify recruiter last contacted date was NOT set
         Recruiter updatedRecruiter = recruiterRepository.findById(recruiter.getId()).get();

@@ -1,0 +1,26 @@
+# Target build output
+target/
+
+# Environment files
+.env
+.env.local
+.env.*
+
+# Logs
+*.log
+logs/
+
+# Uploaded files / Resumes
+uploads/
+
+# IDE / Editor files
+.idea/
+*.iml
+.project
+.classpath
+.settings/
+.vscode/
+
+# OS metadata
+.DS_Store
+Thumbs.db
