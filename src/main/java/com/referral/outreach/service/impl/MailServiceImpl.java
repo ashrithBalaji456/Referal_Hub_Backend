@@ -97,11 +97,6 @@ public class MailServiceImpl implements MailService {
         EmailTemplate template = templateRepository.findById(templateId)
                 .orElseThrow(() -> new ResourceNotFoundException("Template not found with ID: " + templateId));
 
-        Resume resume = null;
-        if (resumeId != null) {
-            resume = resumeRepository.findById(resumeId).orElse(null);
-        }
-
         Campaign campaign = null;
         if (campaignId != null) {
             campaign = campaignRepository.findById(campaignId).orElse(null);
@@ -122,6 +117,20 @@ public class MailServiceImpl implements MailService {
         }
         if (user == null && template.getUser() != null) {
             user = template.getUser();
+        }
+
+        // Resolve Resume: Check passed resumeId -> Fallback to user active resume -> Fallback to global active resume
+        Resume resume = null;
+        if (resumeId != null) {
+            resume = resumeRepository.findById(resumeId).orElse(null);
+        }
+        if (resume == null || resume.getFilePath() == null || !new File(resume.getFilePath()).exists()) {
+            if (user != null) {
+                resume = resumeRepository.findByUserAndIsActiveTrue(user).orElse(null);
+            }
+        }
+        if (resume == null || resume.getFilePath() == null || !new File(resume.getFilePath()).exists()) {
+            resume = resumeRepository.findByIsActiveTrue().orElse(null);
         }
 
         java.util.Map<String, String> vars = getCandidateVariables(user);
@@ -152,13 +161,16 @@ public class MailServiceImpl implements MailService {
                 if (file.exists()) {
                     byte[] fileBytes = Files.readAllBytes(file.toPath());
                     base64Content = java.util.Base64.getEncoder().encodeToString(fileBytes);
-                    attachmentName = resume.getOriginalFilename();
-                    log.info("Attached resume: {} (size: {} bytes)", resume.getOriginalFilename(), fileBytes.length);
+                    attachmentName = (resume.getOriginalFilename() != null && !resume.getOriginalFilename().isBlank()) 
+                            ? resume.getOriginalFilename() 
+                            : "Ashrith_Balaji_Resume.pdf";
+                    log.info("Successfully attached resume: {} (size: {} bytes, base64 length: {})", 
+                            attachmentName, fileBytes.length, base64Content.length());
                 } else {
                     log.warn("Physical resume file not found at {}. Sending email without resume attachment.", resume.getFilePath());
                 }
             } else {
-                log.info("No active resume attached to campaign. Sending email without resume attachment.");
+                log.warn("No active resume found in database or attached to campaign. Sending email without resume attachment.");
             }
 
             String messageId = brevoClient.sendEmail(
