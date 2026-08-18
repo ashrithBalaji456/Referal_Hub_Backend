@@ -78,6 +78,8 @@ public class ResumeServiceImpl implements ResumeService {
             // Copy file to the local directory
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
 
+            String base64Data = java.util.Base64.getEncoder().encodeToString(file.getBytes());
+
             // Save metadata
             Resume resume = Resume.builder()
                     .filename(safeFilename)
@@ -85,6 +87,7 @@ public class ResumeServiceImpl implements ResumeService {
                     .filePath(targetLocation.toString())
                     .fileSize(file.getSize())
                     .contentType(contentType)
+                    .fileData(base64Data)
                     .isActive(false) // Not active by default
                     .user(user)
                     .build();

@@ -156,18 +156,25 @@ public class MailServiceImpl implements MailService {
             String attachmentName = null;
             String base64Content = null;
 
-            if (resume != null && resume.getFilePath() != null) {
-                File file = new File(resume.getFilePath());
-                if (file.exists()) {
-                    byte[] fileBytes = Files.readAllBytes(file.toPath());
-                    base64Content = java.util.Base64.getEncoder().encodeToString(fileBytes);
-                    attachmentName = (resume.getOriginalFilename() != null && !resume.getOriginalFilename().isBlank()) 
-                            ? resume.getOriginalFilename() 
-                            : "Ashrith_Balaji_Resume.pdf";
-                    log.info("Successfully attached resume: {} (size: {} bytes, base64 length: {})", 
-                            attachmentName, fileBytes.length, base64Content.length());
-                } else {
-                    log.warn("Physical resume file not found at {}. Sending email without resume attachment.", resume.getFilePath());
+            if (resume != null) {
+                attachmentName = (resume.getOriginalFilename() != null && !resume.getOriginalFilename().isBlank()) 
+                        ? resume.getOriginalFilename() 
+                        : "Ashrith_Balaji_Resume.pdf";
+
+                if (resume.getFileData() != null && !resume.getFileData().isBlank()) {
+                    base64Content = resume.getFileData();
+                    log.info("Successfully attached resume from database fileData: {} (Base64 length: {})", 
+                            attachmentName, base64Content.length());
+                } else if (resume.getFilePath() != null) {
+                    File file = new File(resume.getFilePath());
+                    if (file.exists()) {
+                        byte[] fileBytes = Files.readAllBytes(file.toPath());
+                        base64Content = java.util.Base64.getEncoder().encodeToString(fileBytes);
+                        log.info("Successfully attached resume from disk: {} (size: {} bytes, base64 length: {})", 
+                                attachmentName, fileBytes.length, base64Content.length());
+                    } else {
+                        log.warn("Physical resume file not found at {}. Sending email without resume attachment.", resume.getFilePath());
+                    }
                 }
             } else {
                 log.warn("No active resume found in database or attached to campaign. Sending email without resume attachment.");

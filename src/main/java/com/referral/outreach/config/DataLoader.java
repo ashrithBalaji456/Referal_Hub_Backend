@@ -115,36 +115,70 @@ public class DataLoader implements CommandLineRunner {
             }
         }
 
+        // Ensure all existing resumes in database have fileData populated (Backfill for Render/Cloud)
+        byte[] defaultBytes = null;
+        try {
+            ClassPathResource defaultResResource = new ClassPathResource("default_resume.pdf");
+            if (defaultResResource.exists()) {
+                defaultBytes = defaultResResource.getInputStream().readAllBytes();
+            }
+        } catch (Exception ex) {
+            log.warn("Could not read default_resume.pdf from classpath: {}", ex.getMessage());
+        }
+
+        List<Resume> allResumes = resumeRepository.findAll();
+        for (Resume r : allResumes) {
+            if (r.getFileData() == null || r.getFileData().isBlank()) {
+                try {
+                    File physicalFile = r.getFilePath() != null ? new File(r.getFilePath()) : null;
+                    if (physicalFile != null && physicalFile.exists()) {
+                        byte[] bytes = Files.readAllBytes(physicalFile.toPath());
+                        r.setFileData(java.util.Base64.getEncoder().encodeToString(bytes));
+                        resumeRepository.save(r);
+                        log.info("Backfilled fileData for resume ID: {} from disk file: {}", r.getId(), r.getOriginalFilename());
+                    } else if (defaultBytes != null) {
+                        r.setFileData(java.util.Base64.getEncoder().encodeToString(defaultBytes));
+                        resumeRepository.save(r);
+                        log.info("Backfilled fileData for resume ID: {} from default_resume.pdf classpath resource", r.getId());
+                    }
+                } catch (Exception ex) {
+                    log.error("Failed to backfill fileData for resume ID: {}", r.getId(), ex);
+                }
+            }
+        }
+
         java.util.List<Resume> defaultUserActiveResumes = resumeRepository.findAllByUserAndIsActiveTrue(defaultUser);
         if (!defaultUserActiveResumes.isEmpty()) {
             resume = defaultUserActiveResumes.get(0);
         } else if (resumeRepository.count() == 0) {
+            byte[] resumeBytes = null;
             File sourceFile = new File("C:\\Users\\ashri\\SpringNew\\Profile\\assets\\AshrithBalaji_BackendDeveloper_Resume.pdf");
             if (sourceFile.exists()) {
-                log.info("Found resume file at {}. Importing into database...", sourceFile.getAbsolutePath());
-                
-                Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
-                Files.createDirectories(uploadPath);
+                try {
+                    resumeBytes = Files.readAllBytes(sourceFile.toPath());
+                } catch (Exception ignored) {}
+            }
+            if (resumeBytes == null) {
+                resumeBytes = defaultBytes;
+            }
 
-                String safeFilename = UUID.randomUUID() + "_AshrithBalaji_BackendDeveloper_Resume.pdf";
-                Path targetLocation = uploadPath.resolve(safeFilename);
-
-                Files.copy(sourceFile.toPath(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
+            if (resumeBytes != null && resumeBytes.length > 0) {
+                log.info("Creating default active resume in database...");
+                String base64Data = java.util.Base64.getEncoder().encodeToString(resumeBytes);
 
                 resume = Resume.builder()
-                        .filename(safeFilename)
+                        .filename("AshrithBalaji_BackendDeveloper_Resume.pdf")
                         .originalFilename("AshrithBalaji_BackendDeveloper_Resume.pdf")
-                        .filePath(targetLocation.toString())
-                        .fileSize(sourceFile.length())
+                        .filePath("./uploads/resumes/AshrithBalaji_BackendDeveloper_Resume.pdf")
+                        .fileSize((long) resumeBytes.length)
                         .contentType("application/pdf")
+                        .fileData(base64Data)
                         .isActive(true)
                         .user(defaultUser)
                         .build();
 
                 resume = resumeRepository.save(resume);
-                log.info("Successfully imported active resume to DB: {}", resume.getOriginalFilename());
-            } else {
-                log.warn("Resume file not found at C:\\Users\\ashri\\SpringNew\\Profile\\assets\\AshrithBalaji_BackendDeveloper_Resume.pdf. Skipping resume import.");
+                log.info("Successfully created default active resume in DB with fileData length: {}", base64Data.length());
             }
         } else {
             log.info("No active resume found for default user.");

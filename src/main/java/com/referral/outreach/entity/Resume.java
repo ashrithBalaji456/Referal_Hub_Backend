@@ -40,6 +40,9 @@ public class Resume {
     @Column(name = "uploaded_timestamp", nullable = false, updatable = false)
     private LocalDateTime uploadedTimestamp;
 
+    @Column(name = "file_data", columnDefinition = "TEXT")
+    private String fileData;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;

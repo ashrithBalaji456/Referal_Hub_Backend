@@ -9,8 +9,9 @@ spring:
     hibernate:
       ddl-auto: create-drop
     show-sql: true
-resend:
+brevo:
   api:
-    key: ${RESEND_API_KEY:re_test_key}
+    key: ${BREVO_API_KEY:xkeysib-test-key}
   from:
-    email: ${RESEND_FROM_EMAIL:onboarding@resend.dev}
+    email: ${BREVO_FROM_EMAIL:ashrithbalajigudla@gmail.com}
+    name: Gudla Ashrith Balaji
