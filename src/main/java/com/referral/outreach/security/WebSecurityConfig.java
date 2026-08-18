@@ -51,6 +51,7 @@ public class WebSecurityConfig {
             .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/health", "/api/auth/**").permitAll()
                 .anyRequest().authenticated()
             );
@@ -67,12 +68,12 @@ public class WebSecurityConfig {
         // Support Vercel deployments, Render frontends, local development, and custom FRONTEND_URL env var
         String customFrontendUrl = System.getenv("FRONTEND_URL");
         List<String> allowedOrigins = new java.util.ArrayList<>(List.of(
-            "http://localhost:5173",
-            "http://localhost:3000",
-            "http://localhost:4173",
+            "https://referal-hub-frontend.vercel.app",
             "https://*.vercel.app",
             "https://*.onrender.com",
-            "*"
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "http://localhost:4173"
         ));
         
         if (customFrontendUrl != null && !customFrontendUrl.isBlank()) {
@@ -80,10 +81,11 @@ public class WebSecurityConfig {
         }
 
         configuration.setAllowedOriginPatterns(allowedOrigins);
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Cache-Control", "X-Requested-With"));
-        configuration.setExposedHeaders(List.of("Authorization", "Content-Disposition"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Cache-Control", "X-Requested-With", "Accept", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"));
+        configuration.setExposedHeaders(List.of("Authorization", "Content-Disposition", "Access-Control-Allow-Origin", "Access-Control-Allow-Credentials"));
         configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
