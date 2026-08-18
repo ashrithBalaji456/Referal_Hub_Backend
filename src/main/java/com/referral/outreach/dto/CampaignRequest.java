@@ -19,7 +19,6 @@ public class CampaignRequest {
     @NotNull(message = "Template ID is required")
     private Long templateId;
 
-    @NotNull(message = "Resume ID is required")
     private Long resumeId;
 
     private boolean isEnabled;

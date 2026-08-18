@@ -104,8 +104,10 @@ public class MailServiceImpl implements MailService {
         EmailTemplate template = templateRepository.findById(templateId)
                 .orElseThrow(() -> new ResourceNotFoundException("Template not found with ID: " + templateId));
 
-        Resume resume = resumeRepository.findById(resumeId)
-                .orElseThrow(() -> new ResourceNotFoundException("Resume not found with ID: " + resumeId));
+        Resume resume = null;
+        if (resumeId != null) {
+            resume = resumeRepository.findById(resumeId).orElse(null);
+        }
 
         Campaign campaign = null;
         if (campaignId != null) {
@@ -145,32 +147,45 @@ public class MailServiceImpl implements MailService {
                 vars
         );
 
-        log.info("Attempting to send email to recruiter: {} ({}) for company: {}", 
+        log.info("Sending email through Resend to recruiter: {} ({}) for company: {}", 
                 recruiter.getName(), recruiter.getEmail(), recruiter.getCompany());
 
         try {
-            File file = new File(resume.getFilePath());
-            if (!file.exists()) {
-                throw new ResourceNotFoundException("Physical resume file not found at " + resume.getFilePath());
+            Attachment attachment = null;
+            if (resume != null && resume.getFilePath() != null) {
+                File file = new File(resume.getFilePath());
+                if (file.exists()) {
+                    byte[] fileBytes = Files.readAllBytes(file.toPath());
+                    String base64Content = java.util.Base64.getEncoder().encodeToString(fileBytes);
+                    attachment = Attachment.builder()
+                            .fileName(resume.getOriginalFilename())
+                            .content(base64Content)
+                            .build();
+                    log.info("Attached resume: {} (size: {} bytes)", resume.getOriginalFilename(), fileBytes.length);
+                } else {
+                    log.warn("Physical resume file not found at {}. Sending email without resume attachment.", resume.getFilePath());
+                }
+            } else {
+                log.info("No active resume attached to campaign. Sending email without resume attachment.");
             }
 
-            byte[] fileBytes = Files.readAllBytes(file.toPath());
-            String base64Content = java.util.Base64.getEncoder().encodeToString(fileBytes);
-            Attachment attachment = Attachment.builder()
-                    .fileName(resume.getOriginalFilename())
-                    .content(base64Content)
-                    .build();
-
-            CreateEmailOptions options = CreateEmailOptions.builder()
+            CreateEmailOptions.Builder optionsBuilder = CreateEmailOptions.builder()
                     .from(fromEmail)
                     .to(recruiter.getEmail())
                     .subject(compiledSubject)
-                    .text(compiledBody)
-                    .attachments(attachment)
-                    .build();
+                    .text(compiledBody);
 
+            if (attachment != null) {
+                optionsBuilder.attachments(attachment);
+            }
+
+            CreateEmailOptions options = optionsBuilder.build();
+
+            log.info("Executing Resend API call -> From: {}, To: {}, Subject: {}", fromEmail, recruiter.getEmail(), compiledSubject);
             CreateEmailResponse response = resend.emails().send(options);
-            log.info("Resend email response ID: {}", response != null ? response.getId() : "null");
+            String resendId = response != null ? response.getId() : "unknown";
+
+            log.info("Email successfully sent through Resend. Recipient: {}, Resend ID: {}", recruiter.getEmail(), resendId);
 
             // Log Success
             recruiter.setLastContactedDate(LocalDateTime.now());
@@ -186,11 +201,11 @@ public class MailServiceImpl implements MailService {
                     .build();
             emailHistoryRepository.save(history);
 
-            log.info("Email sent successfully to: {}", recruiter.getEmail());
             return true;
 
         } catch (Exception ex) {
-            log.error("Failed to send email to: {}", recruiter.getEmail(), ex);
+            log.error("Resend email delivery failed for recipient: {} (Company: {}). Root cause: {}", 
+                    recruiter.getEmail(), recruiter.getCompany(), ex.getMessage(), ex);
 
             EmailHistory history = EmailHistory.builder()
                     .recruiter(recruiter)

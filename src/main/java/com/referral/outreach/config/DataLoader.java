@@ -21,6 +21,7 @@ import org.springframework.core.io.ClassPathResource;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 @Slf4j
 @Component
@@ -94,9 +95,30 @@ public class DataLoader implements CommandLineRunner {
         // Retrieve default user's universal template for campaign linkage
         EmailTemplate template = templateRepository.findByUserAndTemplateName(defaultUser, "Universal Referral Template").orElse(null);
 
-        // 2. Seed Resume
+        // 2. Seed / Normalize Resume per user
         Resume resume = null;
-        if (resumeRepository.count() == 0) {
+        java.util.Map<User, java.util.List<Resume>> activeResumesByUser = resumeRepository.findAllByIsActiveTrue()
+                .stream()
+                .filter(r -> r.getUser() != null)
+                .collect(java.util.stream.Collectors.groupingBy(Resume::getUser));
+
+        for (java.util.Map.Entry<User, java.util.List<Resume>> entry : activeResumesByUser.entrySet()) {
+            java.util.List<Resume> userActiveResumes = entry.getValue();
+            if (userActiveResumes.size() > 1) {
+                log.warn("User {} has {} active resumes. Normalizing so only the most recent remains active...", entry.getKey().getUsername(), userActiveResumes.size());
+                userActiveResumes.sort((r1, r2) -> Long.compare(r2.getId(), r1.getId()));
+                for (int i = 1; i < userActiveResumes.size(); i++) {
+                    Resume r = userActiveResumes.get(i);
+                    r.setActive(false);
+                    resumeRepository.save(r);
+                }
+            }
+        }
+
+        java.util.List<Resume> defaultUserActiveResumes = resumeRepository.findAllByUserAndIsActiveTrue(defaultUser);
+        if (!defaultUserActiveResumes.isEmpty()) {
+            resume = defaultUserActiveResumes.get(0);
+        } else if (resumeRepository.count() == 0) {
             File sourceFile = new File("C:\\Users\\ashri\\SpringNew\\Profile\\assets\\AshrithBalaji_BackendDeveloper_Resume.pdf");
             if (sourceFile.exists()) {
                 log.info("Found resume file at {}. Importing into database...", sourceFile.getAbsolutePath());
@@ -125,11 +147,11 @@ public class DataLoader implements CommandLineRunner {
                 log.warn("Resume file not found at C:\\Users\\ashri\\SpringNew\\Profile\\assets\\AshrithBalaji_BackendDeveloper_Resume.pdf. Skipping resume import.");
             }
         } else {
-            resume = resumeRepository.findByIsActiveTrue().orElse(null);
+            log.info("No active resume found for default user.");
         }
 
         // 3. Seed Campaign
-        if (campaignRepository.count() == 0 && template != null && resume != null) {
+        if (campaignRepository.count() == 0 && template != null) {
             log.info("Seeding default universal outreach campaign...");
             Campaign campaign = Campaign.builder()
                     .name("Universal Outreach Campaign")
@@ -157,7 +179,7 @@ public class DataLoader implements CommandLineRunner {
                 jdbcTemplate.execute("TRUNCATE TABLE recruiter CASCADE;");
                 
                 // Re-create the default campaign since it was truncated
-                if (template != null && resume != null) {
+                if (template != null) {
                     Campaign campaign = Campaign.builder()
                             .name("Universal Outreach Campaign")
                             .emailTemplate(template)

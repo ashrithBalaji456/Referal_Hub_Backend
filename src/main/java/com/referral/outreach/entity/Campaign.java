@@ -26,7 +26,7 @@ public class Campaign {
     private EmailTemplate emailTemplate;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "resume_id", nullable = false)
+    @JoinColumn(name = "resume_id", nullable = true)
     private Resume resume;
 
     @Column(name = "is_enabled", nullable = false)

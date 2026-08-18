@@ -31,6 +31,9 @@ public class ResumeController {
     public ResponseEntity<ResumeResponse> getActiveResume() {
         log.info("REST request to get active resume");
         ResumeResponse response = resumeService.getActiveResume();
+        if (response == null) {
+            return ResponseEntity.ok(null);
+        }
         return ResponseEntity.ok(response);
     }
 

@@ -138,15 +138,20 @@ public class ResumeServiceImpl implements ResumeService {
             throw new ResourceNotFoundException("Resume not found with ID: " + id);
         }
 
-        if (campaignRepository.existsByUserAndResumeId(user, id)) {
-            throw new IllegalArgumentException("Cannot delete resume because it is currently used in one or more campaigns.");
+        // Disassociate campaigns using this resume so campaign continues working without crash
+        List<com.referral.outreach.entity.Campaign> campaigns = campaignRepository.findByResume(resume);
+        for (com.referral.outreach.entity.Campaign c : campaigns) {
+            c.setResume(null);
+            campaignRepository.save(c);
         }
 
         // Delete physical file
         try {
-            Path filePath = Paths.get(resume.getFilePath());
-            Files.deleteIfExists(filePath);
-            log.info("Deleted physical file: {}", filePath);
+            if (resume.getFilePath() != null) {
+                Path filePath = Paths.get(resume.getFilePath());
+                Files.deleteIfExists(filePath);
+                log.info("Deleted physical file: {}", filePath);
+            }
         } catch (IOException e) {
             log.warn("Failed to delete physical file: {}", resume.getFilePath(), e);
         }
@@ -182,9 +187,12 @@ public class ResumeServiceImpl implements ResumeService {
     public ResumeResponse getActiveResume() {
         User user = securityUtils.getAuthenticatedUser();
         log.info("Fetching active resume for user: {}", user.getUsername());
-        Resume resume = resumeRepository.findByUserAndIsActiveTrue(user)
-                .orElseThrow(() -> new ResourceNotFoundException("No active resume found"));
-        return mapToResponse(resume);
+        List<Resume> activeResumes = resumeRepository.findAllByUserAndIsActiveTrue(user);
+        if (activeResumes.isEmpty()) {
+            log.info("No active resume found for user: {}", user.getUsername());
+            return null;
+        }
+        return mapToResponse(activeResumes.get(0));
     }
 
     private ResumeResponse mapToResponse(Resume resume) {

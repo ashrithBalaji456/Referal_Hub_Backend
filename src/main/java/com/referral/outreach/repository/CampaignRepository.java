@@ -13,6 +13,8 @@ import java.util.Optional;
 public interface CampaignRepository extends JpaRepository<Campaign, Long> {
 
     List<Campaign> findByUser(User user);
+    List<Campaign> findByResume(com.referral.outreach.entity.Resume resume);
+    List<Campaign> findByResumeId(Long resumeId);
 
     Optional<Campaign> findByIsEnabledTrue();
     List<Campaign> findAllByIsEnabledTrue();

@@ -15,7 +15,10 @@ public interface ResumeRepository extends JpaRepository<Resume, Long> {
     List<Resume> findByUser(User user);
 
     Optional<Resume> findByIsActiveTrue();
+    List<Resume> findAllByIsActiveTrue();
+    
     Optional<Resume> findByUserAndIsActiveTrue(User user);
+    List<Resume> findAllByUserAndIsActiveTrue(User user);
 
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Resume r SET r.isActive = false WHERE r.user.id = :userId")

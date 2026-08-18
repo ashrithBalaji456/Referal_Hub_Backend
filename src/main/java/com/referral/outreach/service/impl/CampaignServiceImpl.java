@@ -57,11 +57,14 @@ public class CampaignServiceImpl implements CampaignService {
             throw new ResourceNotFoundException("Template not found with ID: " + request.getTemplateId());
         }
 
-        Resume resume = resumeRepository.findById(request.getResumeId())
-                .orElseThrow(() -> new ResourceNotFoundException("Resume not found with ID: " + request.getResumeId()));
+        Resume resume = null;
+        if (request.getResumeId() != null) {
+            resume = resumeRepository.findById(request.getResumeId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Resume not found with ID: " + request.getResumeId()));
 
-        if (!resume.getUser().getId().equals(user.getId())) {
-            throw new ResourceNotFoundException("Resume not found with ID: " + request.getResumeId());
+            if (!resume.getUser().getId().equals(user.getId())) {
+                throw new ResourceNotFoundException("Resume not found with ID: " + request.getResumeId());
+            }
         }
 
         Campaign campaign = Campaign.builder()
@@ -104,11 +107,14 @@ public class CampaignServiceImpl implements CampaignService {
             throw new ResourceNotFoundException("Template not found with ID: " + request.getTemplateId());
         }
 
-        Resume resume = resumeRepository.findById(request.getResumeId())
-                .orElseThrow(() -> new ResourceNotFoundException("Resume not found with ID: " + request.getResumeId()));
+        Resume resume = null;
+        if (request.getResumeId() != null) {
+            resume = resumeRepository.findById(request.getResumeId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Resume not found with ID: " + request.getResumeId()));
 
-        if (!resume.getUser().getId().equals(user.getId())) {
-            throw new ResourceNotFoundException("Resume not found with ID: " + request.getResumeId());
+            if (!resume.getUser().getId().equals(user.getId())) {
+                throw new ResourceNotFoundException("Resume not found with ID: " + request.getResumeId());
+            }
         }
 
         campaign.setName(request.getName());
@@ -249,16 +255,29 @@ public class CampaignServiceImpl implements CampaignService {
             throw new ResourceNotFoundException("Campaign not found with ID: " + campaignId);
         }
 
-        boolean success = mailService.sendOutreachEmail(
-                recruiterId, 
-                campaign.getEmailTemplate().getId(), 
-                campaign.getResume().getId(), 
-                campaignId
-        );
-        if (!success) {
-            throw new MailSendingException("Failed to send outreach email to recruiter ID: " + recruiterId);
+        try {
+            boolean success = mailService.sendOutreachEmail(
+                    recruiterId, 
+                    campaign.getEmailTemplate().getId(), 
+                    campaign.getResume() != null ? campaign.getResume().getId() : null, 
+                    campaignId
+            );
+            if (!success) {
+                com.referral.outreach.entity.EmailHistory latestHistory = emailHistoryRepository
+                        .findTopByCampaignIdAndRecruiterIdOrderBySentTimestampDesc(campaignId, recruiterId)
+                        .orElse(null);
+                String errorMsg = (latestHistory != null && latestHistory.getErrorMessage() != null) 
+                        ? latestHistory.getErrorMessage() 
+                        : "Resend API delivery failed";
+                throw new MailSendingException("Failed to send outreach email to recruiter ID: " + recruiterId + ". Resend Error: " + errorMsg);
+            }
+            log.info("Manually triggered campaign ID: {} completed successfully", campaignId);
+        } catch (MailSendingException mse) {
+            throw mse;
+        } catch (Exception ex) {
+            log.error("Failed to execute manual campaign trigger for campaign ID: {} and recruiter ID: {}", campaignId, recruiterId, ex);
+            throw new MailSendingException("Failed to send outreach email through Resend: " + ex.getMessage(), ex);
         }
-        log.info("Manually triggered campaign ID: {} completed successfully", campaignId);
     }
 
     @Override
@@ -274,8 +293,8 @@ public class CampaignServiceImpl implements CampaignService {
             throw new ResourceNotFoundException("Campaign not found with ID: " + campaignId);
         }
 
-        if (campaign.getEmailTemplate() == null || campaign.getResume() == null) {
-            throw new IllegalArgumentException("Campaign is missing template or resume association");
+        if (campaign.getEmailTemplate() == null) {
+            throw new IllegalArgumentException("Campaign is missing email template association");
         }
 
         LocalDateTime cooldownLimit = LocalDateTime.now().minusDays(cooldownDays);
@@ -325,7 +344,7 @@ public class CampaignServiceImpl implements CampaignService {
                         boolean success = mailService.sendOutreachEmail(
                                 recruiter.getId(),
                                 campaign.getEmailTemplate().getId(),
-                                campaign.getResume().getId(),
+                                campaign.getResume() != null ? campaign.getResume().getId() : null,
                                 campaignId
                         );
                         if (success) {
@@ -360,10 +379,10 @@ public class CampaignServiceImpl implements CampaignService {
         return CampaignResponse.builder()
                 .id(campaign.getId())
                 .name(campaign.getName())
-                .templateId(campaign.getEmailTemplate().getId())
-                .templateName(campaign.getEmailTemplate().getTemplateName())
-                .resumeId(campaign.getResume().getId())
-                .resumeFilename(campaign.getResume().getOriginalFilename())
+                .templateId(campaign.getEmailTemplate() != null ? campaign.getEmailTemplate().getId() : null)
+                .templateName(campaign.getEmailTemplate() != null ? campaign.getEmailTemplate().getTemplateName() : null)
+                .resumeId(campaign.getResume() != null ? campaign.getResume().getId() : null)
+                .resumeFilename(campaign.getResume() != null ? campaign.getResume().getOriginalFilename() : null)
                 .isEnabled(campaign.isEnabled())
                 .targetSet(campaign.getTargetSet())
                 .targetTitleGroup(campaign.getTargetTitleGroup())
