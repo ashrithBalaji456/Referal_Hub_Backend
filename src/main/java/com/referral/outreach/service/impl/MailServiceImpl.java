@@ -9,17 +9,18 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.referral.outreach.service.CandidateProfileService;
 import com.referral.outreach.util.TemplateParser;
-import jakarta.mail.internet.MimeMessage;
+import com.resend.Resend;
+import com.resend.services.emails.model.Attachment;
+import com.resend.services.emails.model.CreateEmailOptions;
+import com.resend.services.emails.model.CreateEmailResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.time.LocalDateTime;
 
 @Slf4j
@@ -27,7 +28,7 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class MailServiceImpl implements MailService {
 
-    private final JavaMailSender mailSender;
+    private final Resend resend;
     private final RecruiterRepository recruiterRepository;
     private final TemplateRepository templateRepository;
     private final ResumeRepository resumeRepository;
@@ -36,6 +37,9 @@ public class MailServiceImpl implements MailService {
     private final CandidateProfileRepository candidateProfileRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
+
+    @Value("${resend.from.email:onboarding@resend.dev}")
+    private String fromEmail;
 
     @Value("${app.candidate-name:Gudla Ashrith Balaji}")
     private String candidateName;
@@ -145,21 +149,28 @@ public class MailServiceImpl implements MailService {
                 recruiter.getName(), recruiter.getEmail(), recruiter.getCompany());
 
         try {
-            MimeMessage mimeMessage = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
-
-            helper.setTo(recruiter.getEmail());
-            helper.setSubject(compiledSubject);
-            helper.setText(compiledBody, false); // Sends plain text
-
             File file = new File(resume.getFilePath());
             if (!file.exists()) {
                 throw new ResourceNotFoundException("Physical resume file not found at " + resume.getFilePath());
             }
-            FileSystemResource fileResource = new FileSystemResource(file);
-            helper.addAttachment(resume.getOriginalFilename(), fileResource);
 
-            mailSender.send(mimeMessage);
+            byte[] fileBytes = Files.readAllBytes(file.toPath());
+            String base64Content = java.util.Base64.getEncoder().encodeToString(fileBytes);
+            Attachment attachment = Attachment.builder()
+                    .fileName(resume.getOriginalFilename())
+                    .content(base64Content)
+                    .build();
+
+            CreateEmailOptions options = CreateEmailOptions.builder()
+                    .from(fromEmail)
+                    .to(recruiter.getEmail())
+                    .subject(compiledSubject)
+                    .text(compiledBody)
+                    .attachments(attachment)
+                    .build();
+
+            CreateEmailResponse response = resend.emails().send(options);
+            log.info("Resend email response ID: {}", response != null ? response.getId() : "null");
 
             // Log Success
             recruiter.setLastContactedDate(LocalDateTime.now());
@@ -260,12 +271,6 @@ public class MailServiceImpl implements MailService {
     public void sendPasswordResetEmail(String recipientEmail, String token) {
         log.info("Sending password reset email to: {}", recipientEmail);
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
-            
-            helper.setTo(recipientEmail);
-            helper.setSubject("Outreach Portal - Password Reset Request");
-            
             String resetLink = "http://localhost:5173/reset-password?token=" + token;
             log.info("==================================================================");
             log.info("PASSWORD RESET LINK GENERATED FOR [{}]:", recipientEmail);
@@ -285,8 +290,15 @@ public class MailServiceImpl implements MailService {
                     "<p style='font-size: 12px; color: #64748b; word-break: break-all;'>" + resetLink + "</p>" +
                     "</div>";
             
-            helper.setText(htmlContent, true);
-            mailSender.send(message);
+            CreateEmailOptions options = CreateEmailOptions.builder()
+                    .from(fromEmail)
+                    .to(recipientEmail)
+                    .subject("Outreach Portal - Password Reset Request")
+                    .html(htmlContent)
+                    .build();
+
+            CreateEmailResponse response = resend.emails().send(options);
+            log.info("Password reset email sent via Resend to: {}, response ID: {}", recipientEmail, response != null ? response.getId() : "null");
             log.info("Password reset email sent successfully to: {}", recipientEmail);
         } catch (Exception e) {
             log.error("Failed to send password reset email to: {}. Error: {}", recipientEmail, e.getMessage());

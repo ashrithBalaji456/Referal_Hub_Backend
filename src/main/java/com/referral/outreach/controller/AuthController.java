@@ -243,7 +243,7 @@ public class AuthController {
             log.error("Failed to dispatch password reset email for user {}: {}", email, e.getMessage());
             log.warn("[DEV MODE] Reset link for {}: reset-password?token={}", email, token);
             return ResponseEntity.ok(Map.of(
-                "message", "Password reset link generated! To receive emails in production, ensure SMTP_HOST, SMTP_USERNAME, and SMTP_PASSWORD environment variables are set in your Render dashboard."
+                "message", "Password reset link generated! To receive emails in production, ensure the RESEND_API_KEY environment variable is set in your Render dashboard."
             ));
         }
 

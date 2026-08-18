@@ -51,15 +51,18 @@ public class AuthControllerIntegrationTest {
     private ObjectMapper objectMapper;
 
     @org.springframework.boot.test.mock.mockito.MockBean
-    private org.springframework.mail.javamail.JavaMailSender mailSender;
+    private com.resend.Resend resend;
 
     @BeforeEach
-    public void setup() {
+    public void setup() throws Exception {
         tokenRepository.deleteAll();
         userRepository.deleteAll();
 
-        jakarta.mail.internet.MimeMessage mockMimeMessage = org.mockito.Mockito.mock(jakarta.mail.internet.MimeMessage.class);
-        org.mockito.Mockito.when(mailSender.createMimeMessage()).thenReturn(mockMimeMessage);
+        com.resend.services.emails.Emails mockEmails = org.mockito.Mockito.mock(com.resend.services.emails.Emails.class);
+        org.mockito.Mockito.when(resend.emails()).thenReturn(mockEmails);
+        com.resend.services.emails.model.CreateEmailResponse mockResponse = org.mockito.Mockito.mock(com.resend.services.emails.model.CreateEmailResponse.class);
+        org.mockito.Mockito.when(mockResponse.getId()).thenReturn("resend_reset_123");
+        org.mockito.Mockito.when(mockEmails.send(org.mockito.ArgumentMatchers.any(com.resend.services.emails.model.CreateEmailOptions.class))).thenReturn(mockResponse);
     }
 
     @Test

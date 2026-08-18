@@ -3,14 +3,16 @@ package com.referral.outreach.service;
 import com.referral.outreach.entity.*;
 import com.referral.outreach.exception.MailSendingException;
 import com.referral.outreach.repository.*;
-import jakarta.mail.internet.MimeMessage;
+import com.resend.Resend;
+import com.resend.services.emails.Emails;
+import com.resend.services.emails.model.CreateEmailOptions;
+import com.resend.services.emails.model.CreateEmailResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,15 +46,16 @@ public class MailServiceTest {
     private EmailHistoryRepository emailHistoryRepository;
 
     @MockBean
-    private JavaMailSender mailSender;
+    private Resend resend;
 
+    private Emails mockEmails;
     private Recruiter recruiter;
     private EmailTemplate template;
     private Resume resume;
     private File tempResumeFile;
 
     @BeforeEach
-    public void setup() throws IOException {
+    public void setup() throws Exception {
         recruiterRepository.deleteAll();
         templateRepository.deleteAll();
         resumeRepository.deleteAll();
@@ -87,17 +90,21 @@ public class MailServiceTest {
                 .isActive(true)
                 .build());
 
-        // Setup mock JavaMailSender to return a valid MimeMessage
-        MimeMessage mockMimeMessage = mock(MimeMessage.class);
-        when(mailSender.createMimeMessage()).thenReturn(mockMimeMessage);
+        // Setup mock Resend emails service
+        mockEmails = mock(Emails.class);
+        when(resend.emails()).thenReturn(mockEmails);
+
+        CreateEmailResponse mockResponse = mock(CreateEmailResponse.class);
+        when(mockResponse.getId()).thenReturn("resend_123");
+        when(mockEmails.send(any(CreateEmailOptions.class))).thenReturn(mockResponse);
     }
 
     @Test
-    public void testSendOutreachEmail_Success() {
+    public void testSendOutreachEmail_Success() throws Exception {
         mailService.sendOutreachEmail(recruiter.getId(), template.getId(), resume.getId(), null);
 
-        // Verify mailSender.send() was called
-        verify(mailSender, times(1)).send(any(MimeMessage.class));
+        // Verify resend.emails().send() was called
+        verify(mockEmails, times(1)).send(any(CreateEmailOptions.class));
 
         // Verify history was saved with SUCCESS
         List<EmailHistory> historyList = emailHistoryRepository.findAll();
@@ -114,9 +121,9 @@ public class MailServiceTest {
     }
 
     @Test
-    public void testSendOutreachEmail_Failure() {
-        // Force mailSender to throw exception
-        doThrow(new RuntimeException("SMTP Server offline")).when(mailSender).send(any(MimeMessage.class));
+    public void testSendOutreachEmail_Failure() throws Exception {
+        // Force resend.emails().send() to throw exception
+        doThrow(new RuntimeException("Resend API rate limit exceeded")).when(mockEmails).send(any(CreateEmailOptions.class));
 
         boolean success = mailService.sendOutreachEmail(recruiter.getId(), template.getId(), resume.getId(), null);
         assertFalse(success);
@@ -126,7 +133,7 @@ public class MailServiceTest {
         assertEquals(1, historyList.size());
         EmailHistory history = historyList.get(0);
         assertEquals(EmailHistoryStatus.FAILED, history.getStatus());
-        assertEquals("SMTP Server offline", history.getErrorMessage());
+        assertEquals("Resend API rate limit exceeded", history.getErrorMessage());
 
         // Verify recruiter last contacted date was NOT set
         Recruiter updatedRecruiter = recruiterRepository.findById(recruiter.getId()).get();

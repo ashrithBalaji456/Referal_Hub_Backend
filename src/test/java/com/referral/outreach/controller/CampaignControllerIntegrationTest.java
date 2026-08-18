@@ -7,7 +7,10 @@ import com.referral.outreach.repository.CampaignRepository;
 import com.referral.outreach.repository.RecruiterRepository;
 import com.referral.outreach.repository.ResumeRepository;
 import com.referral.outreach.repository.TemplateRepository;
-import jakarta.mail.internet.MimeMessage;
+import com.resend.Resend;
+import com.resend.services.emails.Emails;
+import com.resend.services.emails.model.CreateEmailOptions;
+import com.resend.services.emails.model.CreateEmailResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +18,6 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +29,7 @@ import java.io.IOException;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -61,7 +64,7 @@ public class CampaignControllerIntegrationTest {
     private ObjectMapper objectMapper;
 
     @MockBean
-    private JavaMailSender mailSender;
+    private Resend resend;
 
     private EmailTemplate savedTemplate;
     private Resume savedResume;
@@ -70,7 +73,7 @@ public class CampaignControllerIntegrationTest {
     private User testUser;
 
     @BeforeEach
-    public void setup() throws IOException {
+    public void setup() throws Exception {
         campaignRepository.deleteAll();
         templateRepository.deleteAll();
         resumeRepository.deleteAll();
@@ -121,8 +124,11 @@ public class CampaignControllerIntegrationTest {
                 .status(RecruiterStatus.ACTIVE)
                 .build());
 
-        MimeMessage mockMimeMessage = mock(MimeMessage.class);
-        when(mailSender.createMimeMessage()).thenReturn(mockMimeMessage);
+        Emails mockEmails = mock(Emails.class);
+        when(resend.emails()).thenReturn(mockEmails);
+        CreateEmailResponse mockResponse = mock(CreateEmailResponse.class);
+        when(mockResponse.getId()).thenReturn("resend_campaign_123");
+        when(mockEmails.send(any(CreateEmailOptions.class))).thenReturn(mockResponse);
     }
 
     @Test

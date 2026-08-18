@@ -9,6 +9,8 @@ spring:
     hibernate:
       ddl-auto: create-drop
     show-sql: true
-  mail:
-    host: localhost
-    port: 3025
+resend:
+  api:
+    key: ${RESEND_API_KEY:re_test_key}
+  from:
+    email: ${RESEND_FROM_EMAIL:onboarding@resend.dev}
