@@ -65,7 +65,6 @@ com\referral\outreach\exception\DuplicateTemplateException.class
 com\referral\outreach\security\JwtTokenProvider.class
 com\referral\outreach\service\EmailHistoryService.class
 com\referral\outreach\repository\EmailHistoryRepository.class
-com\referral\outreach\config\CorsConfig$1.class
 com\referral\outreach\controller\EmailHistoryController.class
 com\referral\outreach\entity\User$UserBuilder.class
 com\referral\outreach\dto\EmailHistoryResponse.class
@@ -77,7 +76,6 @@ com\referral\outreach\security\SecurityUtils.class
 com\referral\outreach\security\UserPrincipal.class
 com\referral\outreach\entity\CandidateProfile$CandidateProfileBuilder.class
 com\referral\outreach\service\impl\RecruiterServiceImpl.class
-com\referral\outreach\config\CorsConfig.class
 com\referral\outreach\controller\CampaignController.class
 com\referral\outreach\scheduler\WeeklyOutreachScheduler.class
 com\referral\outreach\controller\RecruiterController.class
