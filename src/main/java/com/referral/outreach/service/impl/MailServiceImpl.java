@@ -57,20 +57,52 @@ public class MailServiceImpl implements MailService {
             roleVal = targetRole;
         }
         
+        String emailVal = (profile != null && profile.getEmail() != null && !profile.getEmail().isBlank()) 
+                ? profile.getEmail() 
+                : "ashrithbalajigudla@gmail.com";
+        String linkedinVal = (profile != null && profile.getLinkedinUrl() != null) ? profile.getLinkedinUrl() : "";
+        String githubVal = (profile != null && profile.getGithubUrl() != null) ? profile.getGithubUrl() : "";
+        String phoneVal = (profile != null && profile.getPhoneNumber() != null) ? profile.getPhoneNumber() : "";
+        String locationVal = (profile != null && profile.getLocation() != null) ? profile.getLocation() : "";
+
+        // Name aliases
         vars.put("candidateName", nameVal);
-        vars.put("roleName", roleVal);
-        vars.put("email", (profile != null && profile.getEmail() != null) ? profile.getEmail() : "ashrithbalajigudla@gmail.com");
-        vars.put("linkedin", (profile != null && profile.getLinkedinUrl() != null) ? profile.getLinkedinUrl() : "");
-        vars.put("github", (profile != null && profile.getGithubUrl() != null) ? profile.getGithubUrl() : "");
-        vars.put("phoneNumber", (profile != null && profile.getPhoneNumber() != null) ? profile.getPhoneNumber() : "");
-        vars.put("location", (profile != null && profile.getLocation() != null) ? profile.getLocation() : "");
-        
         vars.put("candidate_name", nameVal);
+        vars.put("name", nameVal);
+
+        // Role aliases
+        vars.put("roleName", roleVal);
         vars.put("role_name", roleVal);
-        vars.put("linkedinUrl", (profile != null && profile.getLinkedinUrl() != null) ? profile.getLinkedinUrl() : "");
-        vars.put("githubUrl", (profile != null && profile.getGithubUrl() != null) ? profile.getGithubUrl() : "");
-        vars.put("phone", (profile != null && profile.getPhoneNumber() != null) ? profile.getPhoneNumber() : "");
-        
+        vars.put("role", roleVal);
+        vars.put("targetRole", roleVal);
+
+        // Email / Mail aliases (Fixes {{mail}} rendering!)
+        vars.put("email", emailVal);
+        vars.put("mail", emailVal);
+        vars.put("candidateEmail", emailVal);
+        vars.put("candidate_email", emailVal);
+
+        // LinkedIn aliases
+        vars.put("linkedin", linkedinVal);
+        vars.put("linkedinUrl", linkedinVal);
+        vars.put("linkedin_url", linkedinVal);
+
+        // GitHub aliases
+        vars.put("github", githubVal);
+        vars.put("githubUrl", githubVal);
+        vars.put("github_url", githubVal);
+
+        // Phone aliases
+        vars.put("phone", phoneVal);
+        vars.put("phoneNumber", phoneVal);
+        vars.put("phone_number", phoneVal);
+
+        // Location aliases
+        vars.put("location", locationVal);
+        vars.put("candidateLocation", locationVal);
+        vars.put("candidate_location", locationVal);
+
+        // Inject custom fields defined by user in Candidate Profiler Settings
         if (profile != null && profile.getCustomFieldsJson() != null && !profile.getCustomFieldsJson().isEmpty()) {
             try {
                 java.util.Map<String, String> customMap = objectMapper.readValue(
@@ -78,7 +110,11 @@ public class MailServiceImpl implements MailService {
                         new TypeReference<java.util.Map<String, String>>() {}
                 );
                 if (customMap != null) {
-                    vars.putAll(customMap);
+                    for (java.util.Map.Entry<String, String> entry : customMap.entrySet()) {
+                        if (entry.getKey() != null && !entry.getKey().isBlank()) {
+                            vars.put(entry.getKey(), entry.getValue() != null ? entry.getValue() : "");
+                        }
+                    }
                 }
             } catch (Exception e) {
                 log.error("Failed to parse custom fields JSON", e);

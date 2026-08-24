@@ -274,12 +274,12 @@ public class DataLoader implements CommandLineRunner {
                 "• Spring Boot Developer\n\n" +
                 "I would be highly grateful if you could consider my profile for any suitable current or upcoming opportunities at your organization, {{companyName}}.\n\n" +
                 "I have attached my resume for your reference. I would appreciate the opportunity to discuss how my skills and projects could contribute to your team.\n\n" +
-                "LinkedIn: linkedin.com/in/ashrith-balaji-gudla-5768302a8/\n\n" +
+                "LinkedIn: {{linkedin}}\n\n" +
                 "Thank you for your time and consideration. I look forward to hearing from you.\n\n" +
                 "Best regards,\n" +
                 "{{candidateName}}\n" +
                 "{{roleName}}\n" +
-                "Email: ashrithbalajigudla@gmail.com";
+                "Email: {{mail}}";
 
         String dubaiSubject = "Job Referral Request - {{candidateName}} - {{roleName}} (Remote / Relocation)";
 
@@ -388,7 +388,7 @@ public class DataLoader implements CommandLineRunner {
                         "Best regards,\n" +
                         "{{candidateName}}\n" +
                         "{{roleName}}\n" +
-                        "Email: ashrithbalajigudla@gmail.com";
+                        "Email: {{mail}}";
 
                 EmailTemplate dubaiTemplate = EmailTemplate.builder()
                         .templateName("Dubai Outreach Template")
