@@ -23,7 +23,7 @@ public class BrevoClient {
 
     private final ObjectMapper objectMapper;
 
-    @Value("${brevo.api.key:xkeysib-mock-key}")
+    @Value("${brevo.api.key:}")
     private String apiKey;
 
     @Value("${brevo.from.email:ashrithbalajigudla@gmail.com}")

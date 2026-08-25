@@ -32,4 +32,6 @@ public class RecruiterRequest {
     private RecruiterStatus status;
 
     private Integer contactSet;
+
+    private Boolean isPublic;
 }

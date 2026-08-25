@@ -22,6 +22,7 @@ public class WeeklyOutreachScheduler {
 
     private final CampaignRepository campaignRepository;
     private final RecruiterRepository recruiterRepository;
+    private final com.referral.outreach.repository.UserRecruiterStateRepository userRecruiterStateRepository;
     private final MailService mailService;
 
     @Value("${app.scheduler.cooldown-days:30}")
@@ -61,6 +62,21 @@ public class WeeklyOutreachScheduler {
                     groups,
                     isAllGroup
             );
+
+            if (activeCampaign.getUser() != null) {
+                com.referral.outreach.entity.User user = activeCampaign.getUser();
+                java.util.List<com.referral.outreach.entity.UserRecruiterState> userStates = userRecruiterStateRepository.findByUser(user);
+                java.util.Map<Long, com.referral.outreach.entity.UserRecruiterState> stateMap = userStates.stream()
+                        .collect(java.util.stream.Collectors.toMap(s -> s.getRecruiter().getId(), s -> s, (s1, s2) -> s1));
+
+                eligibleRecruiters = eligibleRecruiters.stream().filter(r -> {
+                    com.referral.outreach.entity.UserRecruiterState state = stateMap.get(r.getId());
+                    if (state == null) return true;
+                    if (state.getStatus() == RecruiterStatus.INACTIVE) return false;
+                    if (state.getLastContactedDate() != null && state.getLastContactedDate().isAfter(cooldownLimit)) return false;
+                    return true;
+                }).collect(java.util.stream.Collectors.toList());
+            }
 
             log.info("Found {} eligible active recruiters for campaign: '{}' (ID: {}) belonging to user: {} with cooldown limit: {}", 
                     eligibleRecruiters.size(), activeCampaign.getName(), activeCampaign.getId(), 

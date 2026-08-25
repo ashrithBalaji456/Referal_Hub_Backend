@@ -12,8 +12,9 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
-resend:
+brevo:
   api:
-    key: ${RESEND_API_KEY}
+    key: ${BREVO_API_KEY:}
   from:
-    email: ${RESEND_FROM_EMAIL:onboarding@resend.dev}
+    email: ${BREVO_FROM_EMAIL:ashrithbalajigudla@gmail.com}
+    name: ${BREVO_FROM_NAME:Gudla Ashrith Balaji}

@@ -20,4 +20,7 @@ public class RecruiterResponse {
     private RecruiterStatus status;
     private Integer contactSet;
     private LocalDateTime lastContactedDate;
+    private Boolean isPublic;
+    private Boolean isAdded;
+    private String addedByUsername;
 }

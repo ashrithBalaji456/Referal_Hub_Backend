@@ -39,4 +39,12 @@ public class Recruiter {
 
     @Column(name = "last_contacted_date")
     private LocalDateTime lastContactedDate;
+
+    @Column(name = "is_public", nullable = false, columnDefinition = "boolean default true")
+    @Builder.Default
+    private Boolean isPublic = true;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "added_by_user_id")
+    private User addedBy;
 }

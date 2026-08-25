@@ -39,10 +39,12 @@ public class TemplateServiceImpl implements TemplateService {
                 .templateName(request.getTemplateName())
                 .subject(request.getSubject())
                 .body(request.getBody())
+                .createdTimestamp(java.time.LocalDateTime.now())
+                .updatedTimestamp(java.time.LocalDateTime.now())
                 .user(user)
                 .build();
 
-        EmailTemplate savedTemplate = templateRepository.save(template);
+        EmailTemplate savedTemplate = templateRepository.saveAndFlush(template);
         log.info("Created template successfully with ID: {}", savedTemplate.getId());
         return mapToResponse(savedTemplate);
     }
@@ -67,8 +69,9 @@ public class TemplateServiceImpl implements TemplateService {
         template.setTemplateName(request.getTemplateName());
         template.setSubject(request.getSubject());
         template.setBody(request.getBody());
+        template.setUpdatedTimestamp(java.time.LocalDateTime.now());
 
-        EmailTemplate updatedTemplate = templateRepository.save(template);
+        EmailTemplate updatedTemplate = templateRepository.saveAndFlush(template);
         log.info("Updated template ID: {} successfully", id);
         return mapToResponse(updatedTemplate);
     }

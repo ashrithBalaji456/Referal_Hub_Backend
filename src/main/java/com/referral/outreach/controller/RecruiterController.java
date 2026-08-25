@@ -91,4 +91,39 @@ public class RecruiterController {
                 .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "text/csv; charset=UTF-8")
                 .body(csvBytes);
     }
+
+    @GetMapping("/waiting")
+    public ResponseEntity<List<RecruiterResponse>> getWaitingRecruiters() {
+        log.info("REST request to get waiting recruiters");
+        List<RecruiterResponse> response = recruiterService.getWaitingRecruiters();
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/add-waiting")
+    public ResponseEntity<List<RecruiterResponse>> addWaitingRecruiters(@RequestBody List<Long> recruiterIds) {
+        log.info("REST request to add selected waiting recruiters: {}", recruiterIds);
+        List<RecruiterResponse> response = recruiterService.addWaitingRecruiters(recruiterIds);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/add-all-waiting")
+    public ResponseEntity<List<RecruiterResponse>> addAllWaitingRecruiters() {
+        log.info("REST request to add all waiting recruiters");
+        List<RecruiterResponse> response = recruiterService.addAllWaitingRecruiters();
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/dismiss-waiting")
+    public ResponseEntity<List<RecruiterResponse>> dismissWaitingRecruiters(@RequestBody List<Long> recruiterIds) {
+        log.info("REST request to dismiss selected waiting recruiters: {}", recruiterIds);
+        List<RecruiterResponse> response = recruiterService.dismissWaitingRecruiters(recruiterIds);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/dismiss-all-waiting")
+    public ResponseEntity<List<RecruiterResponse>> dismissAllWaitingRecruiters() {
+        log.info("REST request to dismiss all waiting recruiters");
+        List<RecruiterResponse> response = recruiterService.dismissAllWaitingRecruiters();
+        return ResponseEntity.ok(response);
+    }
 }

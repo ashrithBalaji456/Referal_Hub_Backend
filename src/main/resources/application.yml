@@ -22,7 +22,7 @@ spring:
 
 brevo:
   api:
-    key: ${BREVO_API_KEY}
+    key: ${BREVO_API_KEY:}
   from:
     email: ${BREVO_FROM_EMAIL:ashrithbalajigudla@gmail.com}
     name: ${BREVO_FROM_NAME:Gudla Ashrith Balaji}

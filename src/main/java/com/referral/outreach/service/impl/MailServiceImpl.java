@@ -32,6 +32,7 @@ public class MailServiceImpl implements MailService {
     private final EmailHistoryRepository emailHistoryRepository;
     private final CandidateProfileRepository candidateProfileRepository;
     private final UserRepository userRepository;
+    private final UserRecruiterStateRepository userRecruiterStateRepository;
     private final ObjectMapper objectMapper;
 
     @Value("${app.candidate-name:Gudla Ashrith Balaji}")
@@ -226,9 +227,21 @@ public class MailServiceImpl implements MailService {
                     base64Content
             );
 
-            // Log Success
+            // Log Success & Update Last Contacted Date
             recruiter.setLastContactedDate(LocalDateTime.now());
             recruiterRepository.save(recruiter);
+
+            if (user != null) {
+                final User targetUser = user;
+                UserRecruiterState userState = userRecruiterStateRepository.findByUserAndRecruiter(targetUser, recruiter)
+                        .orElseGet(() -> UserRecruiterState.builder()
+                                .user(targetUser)
+                                .recruiter(recruiter)
+                                .status(RecruiterStatus.ACTIVE)
+                                .build());
+                userState.setLastContactedDate(LocalDateTime.now());
+                userRecruiterStateRepository.save(userState);
+            }
 
             EmailHistory history = EmailHistory.builder()
                     .recruiter(recruiter)
