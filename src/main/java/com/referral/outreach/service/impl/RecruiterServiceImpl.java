@@ -189,13 +189,21 @@ public class RecruiterServiceImpl implements RecruiterService {
         return allRecruiters.stream()
                 .filter(r -> {
                     UserRecruiterState state = stateMap.get(r.getId());
-                    if (state != null && Boolean.TRUE.equals(state.getIsAdded())) {
+                    // 1. Explicit per-user state override
+                    if (state != null) {
+                        return Boolean.TRUE.equals(state.getIsAdded());
+                    }
+
+                    // 2. Initial System/Seeded recruiters (addedBy == null) are added by default for all users
+                    if (r.getAddedBy() == null) {
                         return true;
                     }
-                    // Private recruiters added by this specific user
-                    if (Boolean.FALSE.equals(r.getIsPublic()) && r.getAddedBy() != null && r.getAddedBy().getId().equals(currentUser.getId())) {
+
+                    // 3. User-created recruiters are automatically added for the creator
+                    if (r.getAddedBy().getId().equals(currentUser.getId())) {
                         return true;
                     }
+
                     return false;
                 })
                 .map(r -> mapToResponse(r, stateMap.get(r.getId())))
@@ -207,25 +215,26 @@ public class RecruiterServiceImpl implements RecruiterService {
     public List<RecruiterResponse> getWaitingRecruiters() {
         log.info("Fetching waiting public recruiters for current user");
         User currentUser = getOptionalCurrentUser();
-        List<Recruiter> publicRecruiters = recruiterRepository.findAll().stream()
-                .filter(r -> Boolean.TRUE.equals(r.getIsPublic()))
-                .collect(Collectors.toList());
-
         if (currentUser == null) {
             return Collections.emptyList();
         }
+
+        // Only user-created public recruiters (addedBy != null) go to waiting for other users
+        List<Recruiter> publicRecruiters = recruiterRepository.findAll().stream()
+                .filter(r -> Boolean.TRUE.equals(r.getIsPublic()) && r.getAddedBy() != null)
+                .collect(Collectors.toList());
 
         Map<Long, UserRecruiterState> stateMap = getUserStateMap(currentUser);
 
         return publicRecruiters.stream()
                 .filter(r -> {
-                    UserRecruiterState state = stateMap.get(r.getId());
-                    // Exclude if state exists for user (either added or dismissed)
-                    if (state != null) {
+                    // Exclude if created by current user
+                    if (r.getAddedBy().getId().equals(currentUser.getId())) {
                         return false;
                     }
-                    // Exclude if created by the user (creator gets it added automatically)
-                    if (r.getAddedBy() != null && r.getAddedBy().getId().equals(currentUser.getId())) {
+                    UserRecruiterState state = stateMap.get(r.getId());
+                    // Exclude if state exists for current user (already added or dismissed)
+                    if (state != null) {
                         return false;
                     }
                     return true;
@@ -460,8 +469,18 @@ public class RecruiterServiceImpl implements RecruiterService {
         String company = (userState != null && userState.getCustomCompany() != null && !userState.getCustomCompany().isBlank()) ? 
                 userState.getCustomCompany() : recruiter.getCompany();
 
+        User currentUser = getOptionalCurrentUser();
+        boolean defaultIsAdded;
+        if (recruiter.getAddedBy() == null) {
+            defaultIsAdded = true;
+        } else if (currentUser != null && recruiter.getAddedBy().getId().equals(currentUser.getId())) {
+            defaultIsAdded = true;
+        } else {
+            defaultIsAdded = false;
+        }
+
         Boolean isAdded = (userState != null && userState.getIsAdded() != null) ? 
-                userState.getIsAdded() : (recruiter.getIsPublic() != null && !recruiter.getIsPublic());
+                userState.getIsAdded() : defaultIsAdded;
 
         String addedByUsername = recruiter.getAddedBy() != null ? recruiter.getAddedBy().getUsername() : "System";
 
