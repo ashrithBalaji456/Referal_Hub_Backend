@@ -70,9 +70,10 @@ public class RecruiterController {
     @PostMapping("/import")
     public ResponseEntity<Integer> importRecruiters(
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
-            @RequestParam(value = "setNumber", defaultValue = "1") Integer setNumber) {
-        log.info("REST request to import recruiters for contact set: {}", setNumber);
-        int count = recruiterService.importRecruitersFromCsv(file, setNumber);
+            @RequestParam(value = "setNumber", defaultValue = "1") Integer setNumber,
+            @RequestParam(value = "isPublic", defaultValue = "true") Boolean isPublic) {
+        log.info("REST request to import recruiters for contact set: {} (isPublic: {})", setNumber, isPublic);
+        int count = recruiterService.importRecruitersFromCsv(file, setNumber, isPublic);
         return ResponseEntity.ok(count);
     }
 

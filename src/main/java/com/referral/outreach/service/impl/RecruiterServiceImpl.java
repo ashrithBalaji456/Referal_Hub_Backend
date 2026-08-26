@@ -364,8 +364,9 @@ public class RecruiterServiceImpl implements RecruiterService {
 
     @Override
     @Transactional
-    public int importRecruitersFromCsv(org.springframework.web.multipart.MultipartFile file, Integer setNumber) {
-        log.info("Importing recruiters from CSV into public pool. Set number: {}", setNumber);
+    public int importRecruitersFromCsv(org.springframework.web.multipart.MultipartFile file, Integer setNumber, Boolean isPublic) {
+        boolean isPublicVal = isPublic != null ? isPublic : true;
+        log.info("Importing recruiters from CSV (Public: {}). Set number: {}", isPublicVal, setNumber);
         int count = 0;
         User currentUser = getOptionalCurrentUser();
 
@@ -405,7 +406,7 @@ public class RecruiterServiceImpl implements RecruiterService {
                             .company(company)
                             .status(RecruiterStatus.ACTIVE)
                             .contactSet(setNumber != null ? setNumber : 1)
-                            .isPublic(true)
+                            .isPublic(isPublicVal)
                             .addedBy(currentUser)
                             .build();
 

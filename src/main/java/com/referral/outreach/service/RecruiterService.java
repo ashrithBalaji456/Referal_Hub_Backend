@@ -12,7 +12,7 @@ public interface RecruiterService {
     List<RecruiterResponse> getAllRecruiters();
     void deleteRecruiter(Long id);
     RecruiterResponse updateStatus(Long id, RecruiterStatus status);
-    int importRecruitersFromCsv(org.springframework.web.multipart.MultipartFile file, Integer setNumber);
+    int importRecruitersFromCsv(org.springframework.web.multipart.MultipartFile file, Integer setNumber, Boolean isPublic);
     byte[] exportRecruitersToCsv(Integer setNumber);
     List<RecruiterResponse> getWaitingRecruiters();
     List<RecruiterResponse> addWaitingRecruiters(List<Long> recruiterIds);
