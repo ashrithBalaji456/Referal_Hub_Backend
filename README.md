@@ -1,7 +1,7 @@
 <!-- ═══════════════════════ ANIMATED HEADER ═══════════════════════ -->
 <div align="center">
 
-<img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=240&section=header&text=Referral%20Hub&fontSize=76&fontAlignY=36&animation=fadeIn&desc=Automated%20Job%20Outreach%20%26%20Referral%20Management%20Platform&descAlignY=58&descSize=20" alt="Referral Hub banner" />
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=800&size=52&duration=2800&pause=1800&color=00D4FF&center=true&vCenter=true&width=820&height=90&lines=%F0%9F%9A%80+Referral+Hub;Job+Outreach+%26+Referral+Platform" alt="Referral Hub" />
 
 <a href="https://referal-hub-frontend.vercel.app/">
   <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=24&duration=3200&pause=900&color=00D4FF&center=true&vCenter=true&width=760&height=50&lines=Manage+professional+contacts+%F0%9F%91%A5;Build+reusable+email+templates+%F0%9F%93%9D;Attach+PDF+resumes+%F0%9F%93%8E;Schedule+controlled+campaigns+%F0%9F%93%85;Track+every+email+attempt+%F0%9F%93%8A" alt="Typing animation" />
@@ -26,7 +26,7 @@
 
 </div>
 
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%" alt="divider" />
+---
 
 ## 📑 Table of Contents
 
@@ -1024,28 +1024,6 @@ timeline
 
 ---
 
-## 📈 GitHub Stats
-
-<div align="center">
-
-<a href="https://github.com/ashrithBalaji456/Referal_Hub_Backend">
-  <img src="https://github-readme-stats.vercel.app/api/pin/?username=ashrithBalaji456&repo=Referal_Hub_Backend&theme=tokyonight&hide_border=true" alt="Backend repo card" />
-</a>
-<a href="https://github.com/ashrithBalaji456/Referal_Hub_Frontend">
-  <img src="https://github-readme-stats.vercel.app/api/pin/?username=ashrithBalaji456&repo=Referal_Hub_Frontend&theme=tokyonight&hide_border=true" alt="Frontend repo card" />
-</a>
-
-<br/>
-
-<img src="https://github-readme-stats.vercel.app/api?username=ashrithBalaji456&show_icons=true&theme=tokyonight&hide_border=true&count_private=true" height="165" alt="GitHub stats" />
-<img src="https://github-readme-stats.vercel.app/api/top-langs/?username=ashrithBalaji456&layout=compact&theme=tokyonight&hide_border=true" height="165" alt="Top languages" />
-
-<img src="https://streak-stats.demolab.com?user=ashrithBalaji456&theme=tokyonight&hide_border=true" alt="GitHub streak" />
-
-<img src="https://github-readme-activity-graph.vercel.app/graph?username=ashrithBalaji456&theme=tokyo-night&hide_border=true&area=true" width="100%" alt="Contribution activity graph" />
-
-</div>
-
 ---
 
 ## 👨‍💻 Author
@@ -1076,6 +1054,5 @@ If you find this project useful, please give both repositories a ⭐
 
 <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=18&pause=1200&color=F7B731&center=true&vCenter=true&width=620&lines=Schedule+responsibly.;Personalize+thoughtfully.;Track+clearly." alt="Tagline" />
 
-<img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=120&section=footer" alt="footer wave" />
 
 </div>
