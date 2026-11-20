@@ -6,6 +6,7 @@ import com.referral.outreach.exception.ResourceNotFoundException;
 import com.referral.outreach.repository.*;
 import com.referral.outreach.service.BrevoClient;
 import com.referral.outreach.service.MailService;
+import com.referral.outreach.service.SmtpClient;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.referral.outreach.util.TemplateParser;
@@ -25,6 +26,7 @@ import java.time.LocalDateTime;
 public class MailServiceImpl implements MailService {
 
     private final BrevoClient brevoClient;
+    private final SmtpClient smtpClient;
     private final RecruiterRepository recruiterRepository;
     private final TemplateRepository templateRepository;
     private final ResumeRepository resumeRepository;
@@ -35,11 +37,37 @@ public class MailServiceImpl implements MailService {
     private final UserRecruiterStateRepository userRecruiterStateRepository;
     private final ObjectMapper objectMapper;
 
+    @Value("${app.mail.provider:AUTO}")
+    private String mailProvider;
+
+    @Value("${brevo.api.key:}")
+    private String brevoApiKey;
+
     @Value("${app.candidate-name:Gudla Ashrith Balaji}")
     private String candidateName;
 
     @Value("${app.target-role:Java Backend Developer}")
     private String targetRole;
+
+    private String dispatchEmail(String toEmail, String toName, String subject, String textContent, String htmlContent, String attachmentFileName, String base64AttachmentContent) throws Exception {
+        boolean useSmtp;
+        if ("SMTP".equalsIgnoreCase(mailProvider)) {
+            useSmtp = true;
+        } else if ("BREVO".equalsIgnoreCase(mailProvider)) {
+            useSmtp = false;
+        } else {
+            // AUTO mode: If Brevo API key is not configured or blank, use SMTP; otherwise use Brevo
+            useSmtp = (brevoApiKey == null || brevoApiKey.isBlank());
+        }
+
+        if (useSmtp) {
+            log.info("Dispatching email via SMTP Provider to {} <{}>", toName, toEmail);
+            return smtpClient.sendEmail(toEmail, toName, subject, textContent, htmlContent, attachmentFileName, base64AttachmentContent);
+        } else {
+            log.info("Dispatching email via Brevo HTTP API Provider to {} <{}>", toName, toEmail);
+            return brevoClient.sendEmail(toEmail, toName, subject, textContent, htmlContent, attachmentFileName, base64AttachmentContent);
+        }
+    }
 
     private java.util.Map<String, String> getCandidateVariables(User user) {
         java.util.Map<String, String> vars = new java.util.HashMap<>();
@@ -186,7 +214,7 @@ public class MailServiceImpl implements MailService {
                 vars
         );
 
-        log.info("Sending email through Brevo to recruiter: {} ({}) for company: {}", 
+        log.info("Sending outreach email to recruiter: {} ({}) for company: {}", 
                 recruiter.getName(), recruiter.getEmail(), recruiter.getCompany());
 
         try {
@@ -217,7 +245,7 @@ public class MailServiceImpl implements MailService {
                 log.warn("No active resume found in database or attached to campaign. Sending email without resume attachment.");
             }
 
-            String messageId = brevoClient.sendEmail(
+            String messageId = dispatchEmail(
                     recruiter.getEmail(),
                     recruiter.getName(),
                     compiledSubject,
@@ -253,11 +281,11 @@ public class MailServiceImpl implements MailService {
                     .build();
             emailHistoryRepository.save(history);
 
-            log.info("Email sent successfully through Brevo. Recipient: {}, Message ID: {}", recruiter.getEmail(), messageId);
+            log.info("Email sent successfully. Recipient: {}, Message ID: {}", recruiter.getEmail(), messageId);
             return true;
 
         } catch (Exception ex) {
-            log.error("Brevo email delivery failed for recipient: {} (Company: {}). Root cause: {}", 
+            log.error("Email delivery failed for recipient: {} (Company: {}). Root cause: {}", 
                     recruiter.getEmail(), recruiter.getCompany(), ex.getMessage(), ex);
 
             EmailHistory history = EmailHistory.builder()
@@ -350,8 +378,8 @@ public class MailServiceImpl implements MailService {
                 + "Regards,\nReferral Hub Team";
 
         try {
-            brevoClient.sendEmail(recipientEmail, user.getUsername(), subject, body, null, null, null);
-            log.info("Password reset email successfully sent through Brevo to: {}", recipientEmail);
+            dispatchEmail(recipientEmail, user.getUsername(), subject, body, null, null, null);
+            log.info("Password reset email successfully sent to: {}", recipientEmail);
         } catch (Exception ex) {
             log.error("Failed to send password reset email to: {}", recipientEmail, ex);
             throw new MailSendingException("Failed to send password reset email: " + ex.getMessage(), ex);

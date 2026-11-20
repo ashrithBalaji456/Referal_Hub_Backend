@@ -84,7 +84,7 @@ The **Referral Outreach Manager** is an automated enterprise backend application
 2. **Generic Email Rejection**: Recruiters ignore generic copy-pasted emails. This system customizes each message with `{{recruiterName}}`, `{{companyName}}`, `{{roleName}}`, `{{candidateName}}`, `{{linkedin}}`, and custom variables.
 3. **Spam & Blacklisting Prevention**: It enforces rate-limiting delays (2 seconds between dispatches) and a **30-day cooldown** so the same recruiter is never spammed repeatedly.
 4. **Multi-User Privacy & Shared Master Directory**: Initial 2101+ verified recruiters are automatically accessible by all users, while newly added recruiters can be made **Public (Master)** or kept strictly **Private (Only Me)**. Each user has their own private email templates, resumes, campaigns, and delivery logs.
-5. **Reliable Email Delivery with Brevo HTTP API**: Instead of fragile local SMTP connections (which are often blocked by cloud providers like Render, AWS, or GCP), it communicates with Brevo (formerly Sendinblue) via HTTPS REST requests attaching the candidate's PDF resume in Base64 encoding.
+5. **Hybrid Email Delivery (Cloud Brevo API + Local SMTP Support)**: For cloud deployments (Render, AWS, GCP) where SMTP ports are typically blocked, it uses Brevo's HTTPS REST API. For local development, it supports standard SMTP (Gmail, Mailtrap, etc.) configured via `spring.mail` and toggled via `app.mail.provider: AUTO | BREVO | SMTP`.
 
 ---
 

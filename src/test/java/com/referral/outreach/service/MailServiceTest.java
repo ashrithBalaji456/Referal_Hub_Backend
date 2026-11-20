@@ -42,6 +42,9 @@ public class MailServiceTest {
     @MockBean
     private BrevoClient brevoClient;
 
+    @MockBean
+    private SmtpClient smtpClient;
+
     private Recruiter recruiter;
     private EmailTemplate template;
     private Resume resume;
@@ -127,5 +130,31 @@ public class MailServiceTest {
         // Verify recruiter last contacted date was NOT set
         Recruiter updatedRecruiter = recruiterRepository.findById(recruiter.getId()).get();
         assertNull(updatedRecruiter.getLastContactedDate());
+    }
+
+    @Test
+    public void testSendOutreachEmail_SmtpProvider_Success() throws Exception {
+        when(smtpClient.sendEmail(anyString(), any(), anyString(), anyString(), any(), any(), any()))
+                .thenReturn("smtp_msg_456");
+
+        org.springframework.test.util.ReflectionTestUtils.setField(mailService, "mailProvider", "SMTP");
+
+        try {
+            boolean success = mailService.sendOutreachEmail(recruiter.getId(), template.getId(), resume.getId(), null);
+            assertTrue(success);
+
+            // Verify smtpClient.sendEmail was called, and NOT brevoClient
+            verify(smtpClient, times(1)).sendEmail(anyString(), any(), anyString(), anyString(), any(), any(), any());
+            verify(brevoClient, never()).sendEmail(anyString(), any(), anyString(), anyString(), any(), any(), any());
+
+            // Verify history was saved with SUCCESS
+            List<EmailHistory> historyList = emailHistoryRepository.findAll();
+            assertEquals(1, historyList.size());
+            EmailHistory history = historyList.get(0);
+            assertEquals(EmailHistoryStatus.SUCCESS, history.getStatus());
+            assertEquals("alice@company.com", history.getRecipientEmail());
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(mailService, "mailProvider", "BREVO");
+        }
     }
 }

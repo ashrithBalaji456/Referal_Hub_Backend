@@ -15,3 +15,6 @@ brevo:
   from:
     email: ${BREVO_FROM_EMAIL:ashrithbalajigudla@gmail.com}
     name: Gudla Ashrith Balaji
+app:
+  mail:
+    provider: BREVO
