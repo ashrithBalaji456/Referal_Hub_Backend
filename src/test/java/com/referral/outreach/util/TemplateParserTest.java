@@ -36,4 +36,15 @@ public class TemplateParserTest {
         String result = TemplateParser.compile(null, "John", "Acme", "Ashish", "Java");
         assertEquals("", result);
     }
+
+    @Test
+    public void testExtractNameFromEmail() {
+        assertEquals("Atul Mohan", TemplateParser.extractNameFromEmail("atul.mohan@bluestone.com"));
+        assertEquals("Austin Kumar", TemplateParser.extractNameFromEmail("austin.kumar@acs-inc.com"));
+        assertEquals("Sushmita Das", TemplateParser.extractNameFromEmail("sushmita.das@acquia.com"));
+        assertEquals("Shivani", TemplateParser.extractNameFromEmail("shivani@adroit-solutions.com"));
+        org.junit.jupiter.api.Assertions.assertNull(TemplateParser.extractNameFromEmail("hr@company.com"));
+        org.junit.jupiter.api.Assertions.assertNull(TemplateParser.extractNameFromEmail("careers@company.com"));
+        org.junit.jupiter.api.Assertions.assertNull(TemplateParser.extractNameFromEmail("jobs@company.com"));
+    }
 }

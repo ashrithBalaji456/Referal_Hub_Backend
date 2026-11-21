@@ -369,14 +369,18 @@ public class MailServiceImpl implements MailService {
     }
 
     private String resolveRecruiterName(Recruiter recruiter) {
-        if (recruiter == null || recruiter.getName() == null) {
+        if (recruiter == null) {
             return "Recruitment Team";
         }
-        String name = recruiter.getName().trim();
-        if (name.isEmpty() || "-".equals(name) || "Recruitment Team".equalsIgnoreCase(name)) {
-            return "Recruitment Team";
+        String name = recruiter.getName() != null ? recruiter.getName().trim() : "";
+        if (!name.isEmpty() && !"-".equals(name) && !"Recruitment Team".equalsIgnoreCase(name)) {
+            return name;
         }
-        return name;
+        String fromEmail = TemplateParser.extractNameFromEmail(recruiter.getEmail());
+        if (fromEmail != null && !fromEmail.isEmpty()) {
+            return fromEmail;
+        }
+        return "Recruitment Team";
     }
 
     private String resolveCompanyName(Recruiter recruiter) {

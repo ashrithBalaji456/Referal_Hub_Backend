@@ -366,6 +366,14 @@ public class DataLoader implements CommandLineRunner {
                             String title = parts[2].replaceAll("^\"|\"$", "").trim();
                             String company = parts[3].replaceAll("^\"|\"$", "").trim();
 
+                            if (name.isEmpty() || "Recruitment Team".equalsIgnoreCase(name)) {
+                                String extractedName = com.referral.outreach.util.TemplateParser.extractNameFromEmail(email);
+                                if (extractedName != null && !extractedName.isEmpty()) {
+                                    name = extractedName;
+                                    title = "HR Recruiter";
+                                }
+                            }
+
                             if (!email.isEmpty() && !recruiterRepository.existsByEmail(email)) {
                                 set4Batch.add(Recruiter.builder()
                                         .name(name.isEmpty() ? "Recruitment Team" : name)
