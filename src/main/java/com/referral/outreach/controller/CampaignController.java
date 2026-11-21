@@ -130,8 +130,18 @@ public class CampaignController {
                 for (Long rId : recruiterIds) {
                     try {
                         campaignService.triggerCampaignManually(id, rId);
+                        // 2-second rate-limiting delay between dispatches
+                        Thread.sleep(2000);
+                    } catch (InterruptedException ie) {
+                        log.warn("Manual trigger batch interrupted");
+                        Thread.currentThread().interrupt();
+                        break;
                     } catch (Exception ex) {
                         log.error("Failed to manually trigger campaign ID: {} for recruiter ID: {}. Error: {}", id, rId, ex.getMessage(), ex);
+                        if (ex.getMessage() != null && ex.getMessage().contains("550") && ex.getMessage().contains("Daily user sending limit")) {
+                            log.warn("Daily sending limit hit. Aborting manual trigger batch.");
+                            break;
+                        }
                     }
                 }
             } finally {
