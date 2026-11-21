@@ -20,6 +20,8 @@ public interface RecruiterRepository extends JpaRepository<Recruiter, Long> {
 
     boolean existsByEmailAndIdNot(String email, Long id);
 
+    boolean existsByContactSet(Integer contactSet);
+
     List<Recruiter> findByStatus(RecruiterStatus status);
 
     @Query("SELECT r FROM Recruiter r WHERE r.status = :status AND " +

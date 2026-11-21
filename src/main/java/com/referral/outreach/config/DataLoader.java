@@ -344,6 +344,49 @@ public class DataLoader implements CommandLineRunner {
             }
             log.info("Successfully seeded Dubai Recruiters into Set 3.");
         }
+
+        // 7. Seed Set 4 Recruiters from CSV
+        if (!recruiterRepository.existsByContactSet(4)) {
+            log.info("Seeding Set 4 Recruiters from CSV...");
+            ClassPathResource set4Resource = new ClassPathResource("recruiters_set4.csv");
+            if (set4Resource.exists()) {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(set4Resource.getInputStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    boolean isHeader = true;
+                    List<Recruiter> set4Batch = new java.util.ArrayList<>();
+                    while ((line = reader.readLine()) != null) {
+                        if (isHeader) {
+                            isHeader = false;
+                            continue;
+                        }
+                        String[] parts = line.split(",", -1);
+                        if (parts.length >= 4) {
+                            String name = parts[0].replaceAll("^\"|\"$", "").trim();
+                            String email = parts[1].replaceAll("^\"|\"$", "").trim();
+                            String title = parts[2].replaceAll("^\"|\"$", "").trim();
+                            String company = parts[3].replaceAll("^\"|\"$", "").trim();
+
+                            if (!email.isEmpty() && !recruiterRepository.existsByEmail(email)) {
+                                set4Batch.add(Recruiter.builder()
+                                        .name(name.isEmpty() ? "Recruitment Team" : name)
+                                        .email(email)
+                                        .title(title.isEmpty() ? "Talent Acquisition Specialist" : title)
+                                        .company(company.isEmpty() ? "your organization" : company)
+                                        .status(RecruiterStatus.ACTIVE)
+                                        .contactSet(4)
+                                        .build());
+                            }
+                        }
+                    }
+                    if (!set4Batch.isEmpty()) {
+                        recruiterRepository.saveAll(set4Batch);
+                        log.info("Successfully seeded {} recruiters into Set 4.", set4Batch.size());
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to seed Set 4 recruiters from CSV", e);
+                }
+            }
+        }
     }
 
     private void seedDefaultTemplatesForAllUsers() {
@@ -444,6 +487,40 @@ public class DataLoader implements CommandLineRunner {
                         .build();
                 templateRepository.save(pitchTemplate);
                 log.info("Seeded Direct Engineering Pitch Template for user: {}", user.getUsername());
+            }
+
+            // Java Backend Fresher Template
+            if (!templateRepository.existsByUserAndTemplateName(user, "Java Backend Fresher Template")) {
+                String fresherBody = "Dear {{recruiterName}},\n\n" +
+                        "I am Gudla Ashrith Balaji, a 2026 Computer Science and Engineering graduate from the Institute of Aeronautical Engineering, Hyderabad, with a CGPA of 7.92.\n\n" +
+                        "I am writing to enquire about entry-level opportunities in Java Backend Development at {{companyName}}.\n\n" +
+                        "My technical skills include:\n" +
+                        "• Java and Spring Boot\n" +
+                        "• Spring Data JPA and Hibernate\n" +
+                        "• REST API Development\n" +
+                        "• PostgreSQL and MySQL\n" +
+                        "• Docker and Git\n\n" +
+                        "I have built projects involving backend application development, REST APIs, database management, and full-stack integration. I also have three months of experience as an LLM Post-Training Trainee at ethara.ai, where I worked on data annotation, evaluation, and response quality improvement.\n\n" +
+                        "I would appreciate it if you could let me know about any current or upcoming fresher opportunities that match my profile.\n\n" +
+                        "I have attached my resume for your consideration.\n\n" +
+                        "Thank you for your time.\n\n" +
+                        "Regards,\n" +
+                        "Gudla Ashrith Balaji\n" +
+                        "Hyderabad, India\n" +
+                        "Email: ashrithbalajigudla@gmail.com\n" +
+                        "LinkedIn: https://www.linkedin.com/in/ashrith-balaji-gudla-5768302a8/\n" +
+                        "GitHub: https://github.com/ashrithBalaji456";
+
+                String fresherSubject = "Enquiry for Entry-Level Java Backend Development Opportunities - Gudla Ashrith Balaji";
+
+                EmailTemplate fresherTemplate = EmailTemplate.builder()
+                        .templateName("Java Backend Fresher Template")
+                        .subject(fresherSubject)
+                        .body(fresherBody)
+                        .user(user)
+                        .build();
+                templateRepository.save(fresherTemplate);
+                log.info("Seeded Java Backend Fresher Template for user: {}", user.getUsername());
             }
         }
     }

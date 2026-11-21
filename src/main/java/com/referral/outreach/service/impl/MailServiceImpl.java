@@ -200,17 +200,20 @@ public class MailServiceImpl implements MailService {
 
         java.util.Map<String, String> vars = getCandidateVariables(user);
 
+        String rName = resolveRecruiterName(recruiter);
+        String cName = resolveCompanyName(recruiter);
+
         String compiledSubject = TemplateParser.compile(
                 template.getSubject(),
-                recruiter.getName(),
-                recruiter.getCompany(),
+                rName,
+                cName,
                 vars
         );
 
         String compiledBody = TemplateParser.compile(
                 template.getBody(),
-                recruiter.getName(),
-                recruiter.getCompany(),
+                rName,
+                cName,
                 vars
         );
 
@@ -323,11 +326,13 @@ public class MailServiceImpl implements MailService {
         }
 
         java.util.Map<String, String> vars = getCandidateVariables(user);
+        String rName = resolveRecruiterName(recruiter);
+        String cName = resolveCompanyName(recruiter);
 
         return TemplateParser.compile(
                 template.getBody(),
-                recruiter.getName(),
-                recruiter.getCompany(),
+                rName,
+                cName,
                 vars
         );
     }
@@ -352,13 +357,37 @@ public class MailServiceImpl implements MailService {
         }
 
         java.util.Map<String, String> vars = getCandidateVariables(user);
+        String rName = resolveRecruiterName(recruiter);
+        String cName = resolveCompanyName(recruiter);
 
         return TemplateParser.compile(
                 template.getSubject(),
-                recruiter.getName(),
-                recruiter.getCompany(),
+                rName,
+                cName,
                 vars
         );
+    }
+
+    private String resolveRecruiterName(Recruiter recruiter) {
+        if (recruiter == null || recruiter.getName() == null) {
+            return "Recruitment Team";
+        }
+        String name = recruiter.getName().trim();
+        if (name.isEmpty() || "-".equals(name) || "Recruitment Team".equalsIgnoreCase(name)) {
+            return "Recruitment Team";
+        }
+        return name;
+    }
+
+    private String resolveCompanyName(Recruiter recruiter) {
+        if (recruiter == null || recruiter.getCompany() == null) {
+            return "your organization";
+        }
+        String company = recruiter.getCompany().trim();
+        if (company.isEmpty() || "-".equals(company)) {
+            return "your organization";
+        }
+        return company;
     }
 
     @Override

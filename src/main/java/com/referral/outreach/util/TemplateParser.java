@@ -15,7 +15,13 @@ public class TemplateParser {
         }
         
         String rName = recruiterName != null ? recruiterName : "";
+        if ("-".equals(rName.trim())) {
+            rName = "Recruitment Team";
+        }
         String cName = companyName != null ? companyName : "";
+        if ("-".equals(cName.trim())) {
+            cName = "your organization";
+        }
         
         map.putIfAbsent("recruiterName", rName);
         map.putIfAbsent("recruiter_name", rName);
